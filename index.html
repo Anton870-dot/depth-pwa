@@ -8,7 +8,7 @@
   <title>Глубина</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
   <main id="game" aria-label="Игра Глубина">
@@ -36,38 +36,10 @@
       <div class="mission-buttons"><button id="journalBtn" type="button">ЖУРНАЛ</button><button id="crewBtn" type="button">ЭКИПАЖ <b id="crewCount">0/2</b></button></div>
     </aside>
 
-    <nav id="viewSwitch" class="view-switch" aria-label="Режим отображения">
-      <button class="active" type="button" data-view="sonar">◉ СОНАР</button>
-      <button type="button" data-view="interior">▣ ИНТЕРЬЕР</button>
-    </nav>
-
-    <section id="log" class="log hud" aria-live="polite"></section>
-
-    <button id="actionBtn" class="context-action" type="button">ИССЛЕДОВАТЬ ОБЪЕКТ</button>
-
-    <section class="depth-controls" aria-label="Управление глубиной">
-      <button id="ascendBtn" type="button" aria-label="Подняться">▲<small>ВЫШЕ</small></button>
-      <div><span id="targetDepth">640</span><small id="ballastMode">НЕЙТРАЛЬНО</small></div>
-      <button id="descendBtn" type="button" aria-label="Погрузиться">▼<small>ГЛУБЖЕ</small></button>
-      <button id="surfaceBtn" class="surface-btn" type="button" aria-label="Всплыть на поверхность">▲▲<small>ВСПЛЫТЬ</small></button>
-    </section>
-
-    <section class="controls">
-      <button id="silentBtn" class="control secondary" type="button">
-        <span>◌</span><b>ТИХИЙ ХОД</b><small>маскировка</small>
-      </button>
-      <button id="pingBtn" class="control ping" type="button">
-        <span>◉</span><b>ИМПУЛЬС</b><small>−18 энергии</small>
-      </button>
-      <button id="repairBtn" class="control secondary" type="button">
-        <span>✚</span><b>РЕМОНТ</b><small>−25 энергии</small>
-      </button>
-    </section>
-
     <section id="interiorView" class="interior-view" aria-label="Интерьер подлодки">
       <header class="interior-header">
         <div><small>СОСТОЯНИЕ СУДНА</small><b id="interiorStatus">СИСТЕМЫ В НОРМЕ</b></div>
-        <div class="interior-alert" id="interiorAlert">НЕИСПРАВНОСТЕЙ НЕТ</div>
+        <div class="interior-indicators"><div class="thermal-summary" id="thermalSummary">СНАРУЖИ 0°C</div><div class="interior-alert" id="interiorAlert">НЕИСПРАВНОСТЕЙ НЕТ</div></div>
       </header>
 
       <div class="crew-assignment">
@@ -80,6 +52,7 @@
           <div class="room-icon">◉</div><small>ОТСЕК 01</small><h3>ГИДРОАКУСТИЧЕСКИЙ ПОСТ</h3>
           <div class="room-health"><i><em></em></i><span>100%</span></div>
           <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-temperature"><i><em></em></i><span>18°C</span></div>
           <div class="room-task">Пассивное наблюдение</div><div class="room-crew"></div><div class="room-incident"></div>
           <button class="room-action" type="button">УСТРАНИТЬ</button>
         </article>
@@ -87,6 +60,7 @@
           <div class="room-icon">⌖</div><small>ОТСЕК 02</small><h3>КОМАНДНЫЙ ОТСЕК</h3>
           <div class="room-health"><i><em></em></i><span>100%</span></div>
           <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-temperature"><i><em></em></i><span>20°C</span></div>
           <div class="room-task">Управление экспедицией</div><div class="room-crew"></div><div class="room-incident"></div>
           <button class="room-action" type="button">УСТРАНИТЬ</button>
         </article>
@@ -94,6 +68,7 @@
           <div class="room-icon">⚙</div><small>ОТСЕК 03</small><h3>МАШИННОЕ ОТДЕЛЕНИЕ</h3>
           <div class="room-health"><i><em></em></i><span>100%</span></div>
           <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-temperature"><i><em></em></i><span>32°C</span></div>
           <div class="room-task">Реактор стабилен</div><div class="room-crew"></div><div class="room-incident"></div>
           <button class="room-action" type="button">УСТРАНИТЬ</button>
         </article>
@@ -101,15 +76,38 @@
           <div class="room-icon">⌁</div><small>ОТСЕК 04</small><h3>ЛАБОРАТОРИЯ</h3>
           <div class="room-health"><i><em></em></i><span>100%</span></div>
           <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-temperature"><i><em></em></i><span>19°C</span></div>
           <div class="room-task">Нет образцов для анализа</div><div class="room-crew"></div><div class="room-incident"></div>
           <button class="room-action" type="button">УСТРАНИТЬ</button>
         </article>
       </div>
 
-      <section class="passive-console">
-        <div><small>ПАССИВНЫЙ ГИДРОФОН</small><strong id="passiveContact">РЕЖИМ ОЖИДАНИЯ</strong><span id="passiveBearing">Контакты не обнаружены</span></div>
-        <button id="passiveBtn" type="button">ВКЛЮЧИТЬ</button>
+      <section class="navigation-console">
+        <div class="mini-sonar-panel">
+          <canvas id="miniSonar" width="260" height="180" aria-label="Навигационный сонар"></canvas>
+          <div class="mini-sonar-caption"><b>НАВИГАЦИОННЫЙ СОНАР</b><span>Коснитесь экрана, чтобы задать курс</span></div>
+        </div>
+        <div class="helm-console">
+          <section class="passive-console">
+            <div><small>ПАССИВНЫЙ ГИДРОФОН</small><strong id="passiveContact">РЕЖИМ ОЖИДАНИЯ</strong><span id="passiveBearing">Контакты не обнаружены</span></div>
+            <button id="passiveBtn" type="button">ВКЛЮЧИТЬ</button>
+          </section>
+          <section class="depth-controls" aria-label="Управление глубиной">
+            <button id="ascendBtn" type="button" aria-label="Подняться">▲<small>ВЫШЕ</small></button>
+            <div><span id="targetDepth">640</span><small id="ballastMode">НЕЙТРАЛЬНО</small></div>
+            <button id="descendBtn" type="button" aria-label="Погрузиться">▼<small>ГЛУБЖЕ</small></button>
+            <button id="surfaceBtn" class="surface-btn" type="button" aria-label="Всплыть на поверхность">▲▲<small>ВСПЛЫТЬ</small></button>
+          </section>
+          <section class="controls">
+            <button id="silentBtn" class="control secondary" type="button"><span>◌</span><b>ТИХИЙ ХОД</b><small>маскировка</small></button>
+            <button id="pingBtn" class="control ping" type="button"><span>◉</span><b>ИМПУЛЬС</b><small>−18 энергии</small></button>
+            <button id="coolingBtn" class="control secondary" type="button"><span>❄</span><b>ОХЛАЖДЕНИЕ</b><small>реактор</small></button>
+            <button id="repairBtn" class="control secondary" type="button"><span>✚</span><b>КОРПУС</b><small>−25 энергии</small></button>
+          </section>
+        </div>
       </section>
+      <button id="actionBtn" class="context-action" type="button">ИССЛЕДОВАТЬ ОБЪЕКТ</button>
+      <section id="log" class="log" aria-live="polite"></section>
     </section>
 
     <div id="intro" class="overlay visible">
@@ -118,8 +116,8 @@
         <h1>ГЛУБИНА</h1>
         <p>Исследовательская подлодка «Нереида» получила последний сигнал экспедиции, пропавшей под ледяным разломом.</p>
         <div class="briefing">
-          <span>Коснитесь воды, чтобы задать курс.</span>
-          <span>Импульс сонара обнаруживает объекты.</span>
+          <span>Управляйте лодкой из её отсеков.</span>
+          <span>Коснитесь малого сонара, чтобы задать курс.</span>
           <span>Тихий ход помогает скрыться от контактов.</span>
           <span>Меняйте глубину и исследуйте объекты вручную.</span>
         </div>
@@ -157,6 +155,6 @@
       </section>
     </div>
   </main>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

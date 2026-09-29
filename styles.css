@@ -177,6 +177,8 @@ button { font: inherit; color: inherit; }
 .interior-header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 3px 3px 11px; border-bottom:1px solid rgba(86,233,255,.12); }
 .interior-header small, .crew-assignment > small { display:block; color:#668692; font-size:7px; letter-spacing:.14em; }
 .interior-header b { display:block; margin-top:3px; color:#aee9ef; font-size:11px; letter-spacing:.08em; }
+.interior-indicators { display:flex; align-items:center; gap:5px; }
+.thermal-summary { padding:6px 8px; border:1px solid rgba(86,233,255,.22); border-radius:7px; color:#75dfff; font-size:7px; letter-spacing:.08em; }
 .interior-alert { padding:6px 9px; border:1px solid rgba(104,238,174,.25); border-radius:7px; color:#75efad; font-size:7px; letter-spacing:.1em; }
 .alert-mode .interior-alert { color:#ffd3da; border-color:rgba(255,102,128,.55); background:rgba(255,102,128,.1); animation:alert-pulse 1s infinite; }
 .alert-mode .interior-view { box-shadow: inset 0 0 90px rgba(154,10,28,.12), 0 18px 45px rgba(0,0,0,.42); }
@@ -236,4 +238,62 @@ button { font: inherit; color: inherit; }
   .view-switch { top:142px; }
   .interior-view { top:182px; }
   .compartment { min-height:145px; }
+}
+
+/* Main submarine simulator */
+#game { background:radial-gradient(circle at 50% 30%,#0a2c38,#020a11 72%); }
+#ocean { opacity:.1; filter:saturate(.45) brightness(.48); }
+.view-switch { display:none; }
+.interior-view, .interior-mode .interior-view {
+  display:block; top:calc(max(12px, env(safe-area-inset-top)) + 146px); bottom:max(8px,env(safe-area-inset-bottom));
+  padding:11px; animation:interior-in .32s ease both;
+}
+.interior-mode .mission, .interior-mode .log, .interior-mode .context-action, .interior-mode .depth-controls, .interior-mode .controls {
+  opacity:1; visibility:visible; pointer-events:auto;
+}
+.room-temperature { display:flex; align-items:center; gap:5px; margin-top:5px; }
+.room-temperature i { flex:1; height:3px; overflow:hidden; border-radius:2px; background:linear-gradient(90deg,#57bfff,#77e8d2 48%,#ffbc5b 72%,#ff647e); }
+.room-temperature em { display:block; width:50%; height:100%; border-right:2px solid #fff; background:transparent; transition:width .5s; }
+.room-temperature span { min-width:34px; color:#8fb0bb; font-size:6px; text-align:right; }
+.compartment.cold .room-temperature span { color:#6bdcff; text-shadow:0 0 7px #3dbce8; }
+.compartment.hot .room-temperature span { color:#ffb25f; text-shadow:0 0 7px #ff704d; }
+.compartment.power-fault::before { content:"ϟ"; position:absolute; z-index:3; top:17px; right:9px; color:#c7f8ff; font-size:18px; text-shadow:0 0 5px #fff,0 0 12px #5eeaff; animation:electric-spark 1.9s infinite steps(1); }
+.compartment.blackout { filter:brightness(.38) saturate(.55); }
+.compartment.blackout .room-action { filter:brightness(2.2); }
+.power-unstable .interior-view { animation:power-grid-flicker 4.6s infinite steps(1); }
+@keyframes electric-spark { 0%,78%,86%,100%{opacity:0} 79%,81%,87%{opacity:1;transform:translate(1px,-1px)} 80%,88%{opacity:.25;transform:translate(-2px,1px)} }
+@keyframes power-grid-flicker { 0%,69%,72%,75%,100%{filter:none} 70%{filter:brightness(.58)} 71%,74%{filter:brightness(.82)} 73%{filter:brightness(.38)} }
+
+.navigation-console { display:grid; grid-template-columns:minmax(170px,.82fr) 1.18fr; gap:10px; margin-top:10px; }
+.mini-sonar-panel { position:relative; min-height:180px; overflow:hidden; border:1px solid rgba(86,233,255,.2); border-radius:15px; background:radial-gradient(circle,rgba(12,70,82,.72),rgba(1,13,21,.96) 72%); }
+#miniSonar { display:block; width:100%; height:180px; cursor:crosshair; touch-action:none; }
+.mini-sonar-caption { position:absolute; left:9px; right:9px; bottom:7px; pointer-events:none; }
+.mini-sonar-caption b,.mini-sonar-caption span { display:block; }
+.mini-sonar-caption b { color:var(--cyan); font-size:7px; letter-spacing:.13em; }
+.mini-sonar-caption span { margin-top:2px; color:#6e909b; font-size:6px; }
+.helm-console { display:grid; align-content:start; gap:7px; }
+.passive-console { margin:0; min-height:58px; }
+.depth-controls { position:static; display:grid; grid-template-columns:1fr 1.25fr 1fr 1fr; align-items:center; justify-items:stretch; gap:5px; padding:5px; }
+.depth-controls button { width:auto; height:35px; }
+.controls { position:static; display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+.control,.control.ping { min-height:46px; border-radius:10px; }
+.control span,.control.ping span { display:inline; margin-right:4px; font-size:13px; }
+.control b { display:inline; font-size:7px; }
+.control small { font-size:6px; }
+.context-action { position:static; display:none; width:100%; min-width:0; margin-top:8px; transform:none; }
+.context-action.visible { display:block; transform:none; }
+.log { position:static; max-width:none; margin-top:7px; }
+.log p { width:100%; margin-top:4px; }
+
+@media (max-width:680px) {
+  .interior-view,.interior-mode .interior-view { top:calc(max(12px, env(safe-area-inset-top)) + 143px); padding:8px; }
+  .sub-cutaway { grid-template-columns:1fr 1fr; }
+  .compartment { min-height:176px; padding:14px 7px 36px; }
+  .navigation-console { grid-template-columns:1fr; }
+  #miniSonar { height:150px; }
+  .mini-sonar-panel { min-height:150px; }
+}
+@media (max-height:700px) {
+  .interior-view,.interior-mode .interior-view { top:142px; }
+  .compartment { min-height:166px; }
 }
