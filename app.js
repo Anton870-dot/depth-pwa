@@ -14,6 +14,7 @@
     ballast: $('ballastMode'), crewCount: $('crewCount'), credits: $('credits'), crewSlots: $('crewSlots'), crewCards: $('crewCards'),
     interior: $('interiorView'), interiorCrew: $('interiorCrew'), interiorStatus: $('interiorStatus'), interiorAlert: $('interiorAlert'),
     passive: $('passiveBtn'), passiveContact: $('passiveContact'), passiveBearing: $('passiveBearing'), thermal: $('thermalSummary'),
+    noise: $('noiseReadout'), trim: $('trimReadout'), powerBudget: $('powerBudget'), emergency: $('emergencyObjective'),
     intro: $('intro'), end: $('endScreen'), journal: $('journal'), crewScreen: $('crewScreen'), journalEntries: $('journalEntries'),
     endEyebrow: $('endEyebrow'), endTitle: $('endTitle'), endText: $('endText'), best: $('bestRun')
   };
@@ -84,7 +85,10 @@
       if (state?.rooms) Object.values(state.rooms).forEach(room => room.crew = room.crew.filter(member => member !== id));
     }
     else if (profile.crew.length < 2 && profile.credits >= person.cost) { profile.crew.push(id); profile.credits -= person.cost; }
-    saveProfile(); if (state) state.crew = [...profile.crew]; renderCrew(); renderInterior(); updateHud();
+    saveProfile(); if (state) {
+      state.crew = [...profile.crew];
+      profile.crew.forEach(member=>{if(!state.crewVitals[member])state.crewVitals[member]={health:100,fatigue:0,stress:5,bodyTemp:36.6};});
+    } renderCrew(); renderInterior(); updateHud();
   }
 
   function createRooms() {
@@ -109,6 +113,9 @@
       missionComplete: false, distance: 0, samples: 0, nearby: null, pressureWarned: false, crew: [...profile.crew], surfaced: false,
       view: 'interior', selectedCrew: null, rooms: createRooms(), transit: {}, passiveOn: false, passiveTimer: 0,
       nextIncidentAt: 0, nextThermalIncidentAt: 0, floodLevel: 0, outsideTemperature: 0, temperatureLoad: 0, analysisProgress: 0, researched: profile.researched || 0, saveTimer: 0,
+      power: { propulsion: 35, pumps: 25, life: 25, sonar: 15 }, bulkheads: { 'sonar-command': false, 'command-engine': false, 'engine-lab': false },
+      noise: 12, trim: 0, emergencyPhase: 0, emergencyAt: 0, emergencyDeadline: 0, emergencyRoom: null, emergencyRewarded: false,
+      crewVitals: Object.fromEntries(profile.crew.map(id => [id, { health: 100, fatigue: 0, stress: 5, bodyTemp: 36.6 }])),
       journal: [
         { title: 'ПРИКАЗ ЭКСПЕДИЦИИ', text: 'Найти три фрагмента самописца экспедиции «Орфей» и вернуться к навигационному маяку.', unlocked: true },
         { title: 'ЗАПИСЬ 01', text: 'Данные ещё не восстановлены.', unlocked: false },
@@ -138,6 +145,7 @@
     setView('interior');
     ui.silent.classList.remove('active'); ui.cooling.classList.remove('active'); ui.passive.classList.remove('active');
     ui.passive.textContent='ВКЛЮЧИТЬ'; ui.action.classList.remove('visible');
+    document.querySelectorAll('[data-power]').forEach(input => { input.value = state.power[input.dataset.power]; input.nextElementSibling.value = input.value; });
     renderInterior();
     ui.log.innerHTML = '';
     log('Бортовые системы запущены. Ожидается команда.');
@@ -169,8 +177,8 @@
     if (ui.thermal) ui.thermal.textContent = `СНАРУЖИ ${Math.round(state.outsideTemperature)}°C`;
     ui.interiorCrew.innerHTML = state.crew.length ? state.crew.map(id => {
       const person = crewCatalog.find(member => member.id === id), room = Object.values(state.rooms).find(item => item.crew.includes(id));
-      const moving = state.transit[id], place = moving ? `ПЕРЕХОД: ${roomDefs[moving.target].name}` : room ? roomDefs[room.id].name : 'НЕ НАЗНАЧЕН';
-      return `<button type="button" class="crew-token${state.selectedCrew === id ? ' selected' : ''}${moving ? ' transit' : ''}" data-assign-crew="${id}"><b>${person.icon} ${person.name}</b>${place}</button>`;
+      const moving = state.transit[id], vitals = state.crewVitals[id] || {health:100,fatigue:0,stress:0}, place = moving ? `ПЕРЕХОД: ${roomDefs[moving.target].name}` : room ? roomDefs[room.id].name : 'НЕ НАЗНАЧЕН';
+      return `<button type="button" class="crew-token${state.selectedCrew === id ? ' selected' : ''}${moving ? ' transit' : ''}" data-assign-crew="${id}"><b>${person.icon} ${person.name}</b><span>${place}</span><small>ЗДР ${Math.round(vitals.health)} · УСТ ${Math.round(vitals.fatigue)} · СТР ${Math.round(vitals.stress)}</small></button>`;
     }).join('') : '<span class="crew-token">Сначала наймите специалистов</span>';
     ui.interiorCrew.querySelectorAll('[data-assign-crew]').forEach(button => button.addEventListener('click', event => {
       event.stopPropagation(); selectInteriorCrew(button.dataset.assignCrew);
@@ -196,12 +204,20 @@
       }).join('');
       card.querySelector('.room-incident').textContent = room.incident ? incidentDefs[room.incident].name : '';
       const action = card.querySelector('.room-action');
-      action.disabled = !room.crew.length || room.repairing > 0;
+      action.disabled = room.repairing > 0;
       if (room.repairing > 0) action.textContent = `ЗАДЕЛКА · ${Math.ceil(room.repairing)}с`;
-      else if (!room.crew.length) action.textContent = 'НУЖЕН ЧЛЕН ЭКИПАЖА';
       else if (room.incident) action.textContent = room.incident === 'breach' ? 'ЗАДЕЛАТЬ ПРОБОИНУ' : room.incident === 'leak' ? 'УСТРАНИТЬ ТЕЧЬ' : 'УСТРАНИТЬ АВАРИЮ';
       else action.textContent = room.pumping ? 'ОСТАНОВИТЬ ОТКАЧКУ' : 'ВКЛЮЧИТЬ ОТКАЧКУ';
     });
+    document.querySelectorAll('[data-bulkhead]').forEach(button => {
+      const closed = state.bulkheads[button.dataset.bulkhead];
+      button.classList.toggle('closed', closed); button.querySelector('small').textContent = closed ? 'ЗАКРЫТА' : 'ОТКРЫТА';
+    });
+    const totalPower = Object.values(state.power).reduce((sum,value)=>sum+value,0);
+    ui.powerBudget.textContent = `${totalPower} / 100`; ui.powerBudget.classList.toggle('overload', totalPower > 100);
+    ui.noise.textContent = `ШУМ ${Math.round(state.noise)}%`; ui.noise.classList.toggle('danger',state.noise>68);
+    ui.trim.textContent = `ДИФФЕРЕНТ ${state.trim > 0 ? '+' : ''}${state.trim.toFixed(1)}°`; ui.trim.classList.toggle('danger',Math.abs(state.trim)>6);
+    renderEmergencyObjective();
   }
 
   function getFloodLevel() {
@@ -211,7 +227,74 @@
 
   function roomEfficiency(room) {
     const thermalPenalty = room.temperature < 8 ? (8-room.temperature)*.025 : room.temperature > 45 ? (room.temperature-45)*.02 : 0;
-    return clamp(1 - thermalPenalty - room.water/135 - (room.health < 45 ? .18 : 0), .2, 1);
+    const crewPenalty = room.crew.length ? Math.max(...room.crew.map(id => {
+      const v=state.crewVitals[id]; return v ? (100-v.health)*.003+v.fatigue*.002+v.stress*.0015 : 0;
+    })) : 0;
+    return clamp(1 - thermalPenalty - room.water/135 - (room.health < 45 ? .18 : 0) - crewPenalty, .15, 1);
+  }
+
+  function roomIndex(id) { return ['sonar','command','engine','lab'].indexOf(id); }
+  function pathBlocked(from,to) {
+    const a=roomIndex(from), b=roomIndex(to); if(a<0||b<0)return false;
+    const order=['sonar','command','engine','lab'];
+    for(let i=Math.min(a,b);i<Math.max(a,b);i++) if(state.bulkheads[`${order[i]}-${order[i+1]}`]) return true;
+    return false;
+  }
+
+  function toggleBulkhead(key) {
+    if(!running)return;
+    const [a,b]=key.split('-');
+    const boundary=Math.min(roomIndex(a),roomIndex(b));
+    if(!state.bulkheads[key] && Object.values(state.transit).some(trip => {
+      const from=roomIndex(trip.from),to=roomIndex(trip.target); return Math.min(from,to)<=boundary&&Math.max(from,to)>boundary;
+    })){log('Нельзя закрыть переборку: в переходе находится человек.',true);return;}
+    state.bulkheads[key]=!state.bulkheads[key]; tone(state.bulkheads[key]?115:175,.45,.035,'square');
+    log(`Переборка ${roomDefs[a].name.toLowerCase()} — ${roomDefs[b].name.toLowerCase()} ${state.bulkheads[key]?'закрыта':'открыта'}.`); renderInterior();
+  }
+
+  function setPower(system,value,input) {
+    const previous=state.power[system], next=Number(value); state.power[system]=next;
+    const total=Object.values(state.power).reduce((sum,item)=>sum+item,0);
+    if(total>100){state.power[system]=previous;input.value=previous;tone(120,.12,.025,'square');log('Лимит реактора превышен. Сначала снизьте мощность другой системы.',true);}
+    input.nextElementSibling.value=input.value; renderInterior();
+  }
+
+  function renderEmergencyObjective(){
+    if(!ui.emergency)return;
+    const title=ui.emergency.querySelector('b'), text=ui.emergency.querySelector('span');
+    ui.emergency.classList.toggle('active',state.emergencyPhase===1);
+    if(state.emergencyPhase===0){title.textContent='ОЖИДАНИЕ';text.textContent='Центральный пост готов к борьбе за живучесть.';}
+    else if(state.emergencyPhase===1){const left=Math.max(0,Math.ceil((state.emergencyDeadline-performance.now())/1000));title.textContent=`ЛОКАЛИЗОВАТЬ ЗАТОПЛЕНИЕ · ${left}с`;text.textContent='Закройте соседние переборки, устраните пробоину и осушите аварийный отсек до 20%.';}
+    else {title.textContent='АВАРИЯ ЛОКАЛИЗОВАНА';text.textContent='Лодка сохранена. Аварийный резерв: +18 энергии, +120 CR.';}
+  }
+
+  function emergencyBulkheads(roomId){
+    const order=['sonar','command','engine','lab'], index=order.indexOf(roomId), keys=[];
+    if(index>0)keys.push(`${order[index-1]}-${order[index]}`);
+    if(index<order.length-1)keys.push(`${order[index]}-${order[index+1]}`);
+    return keys;
+  }
+
+  function startEmergencyMission(now){
+    const room=state.rooms.command;
+    state.emergencyPhase=1;state.emergencyRoom='command';state.emergencyDeadline=now+120000;
+    room.incident='breach';room.emergencyBreach=true;room.water=Math.max(room.water,22);room.health=Math.min(room.health,78);room.pumping=false;
+    state.cameraShake=10;state.hull=Math.max(1,state.hull-9);alertSound();
+    log('УДАРНАЯ ВОЛНА! Пробоина командного отсека. Локализуйте затопление.',true);renderInterior();
+  }
+
+  function updateEmergencyMission(now){
+    if(state.emergencyPhase!==1)return;
+    const room=state.rooms[state.emergencyRoom], sealed=emergencyBulkheads(room.id).every(key=>state.bulkheads[key]);
+    if(sealed&&!room.incident&&room.water<20){
+      state.emergencyPhase=2;state.energy=Math.min(100,state.energy+18);state.hull=Math.min(100,state.hull+8);
+      state.nextIncidentAt=now+45000;
+      if(!state.emergencyRewarded){state.emergencyRewarded=true;profile.credits+=120;saveProfile();renderCrew();}
+      collectSound();log('Авария локализована. Отсеки удержали давление. +120 CR.');
+    } else if(now>=state.emergencyDeadline){
+      state.emergencyDeadline=now+30000;state.hull=Math.max(0,state.hull-18);state.oxygen=Math.max(0,state.oxygen-10);
+      damage(4,'Локализация сорвана: вода повреждает центральные магистрали.');
+    }
   }
 
   function selectInteriorCrew(id) {
@@ -222,8 +305,10 @@
   function assignCrewToRoom(roomId) {
     const id = state.selectedCrew, target = state.rooms[roomId];
     if (!id || !target || state.transit[id] || target.crew.length >= 2 || target.crew.includes(id)) return;
+    const current=Object.values(state.rooms).find(room=>room.crew.includes(id));
+    if(current&&pathBlocked(current.id,roomId)){log('Маршрут перекрыт герметичной переборкой.',true);tone(110,.16,.025,'square');return;}
     Object.values(state.rooms).forEach(room => room.crew = room.crew.filter(member => member !== id));
-    state.transit[id] = { target: roomId, arriveAt: performance.now() + 3000 };
+    state.transit[id] = { from: current?.id || roomId, target: roomId, arriveAt: performance.now() + 3000 };
     state.selectedCrew = null; log(`${crewCatalog.find(p => p.id === id).name} направляется в отсек.`); renderInterior();
   }
 
@@ -240,7 +325,7 @@
       ui.passiveContact.textContent = state.rooms.sonar.water >= 70 ? 'ОТСЕК ЗАТОПЛЕН' : state.rooms.sonar.health <= 0 ? 'ПОСТ ОТКЛЮЧЁН' : 'РЕЖИМ ОЖИДАНИЯ';
       ui.passiveBearing.textContent = 'Контакты не обнаружены'; return;
     }
-    const range = (crewAt('sonar','sonar') ? 1150 : 720) * roomEfficiency(state.rooms.sonar);
+    const range = (crewAt('sonar','sonar') ? 1150 : 720) * roomEfficiency(state.rooms.sonar) * clamp(state.power.sonar/15,.35,1.8);
     const candidates = entities.filter(e => !e.collected && ['mine','wreck','leviathan','specimen'].includes(e.type))
       .map(e => ({ e, d: Math.hypot(e.x-state.x,e.y-state.y,(e.z-state.depth)*.75) })).filter(item => item.d < range).sort((a,b) => a.d-b.d);
     if (!candidates.length) { ui.passiveContact.textContent = 'ТОЛЬКО ФОНОВЫЙ ШУМ'; ui.passiveBearing.textContent = 'Контакты вне диапазона'; return; }
@@ -265,11 +350,11 @@
   }
 
   function startRoomRepair(roomId) {
-    const room = state.rooms[roomId]; if (!room || !room.crew.length || room.repairing > 0) return;
+    const room = state.rooms[roomId]; if (!room || room.repairing > 0) return;
     if (room.incident) {
-      const baseTime = room.crew.includes('engineer') ? 5 : room.incident === 'breach' ? 13 : 10;
-      room.repairing = baseTime / roomEfficiency(room);
-      room.task = room.crew.includes('engineer') ? 'Инженер герметизирует отсек' : 'Экипаж борется за живучесть';
+      const baseTime = room.crew.includes('engineer') ? 5 : room.crew.length ? (room.incident === 'breach' ? 13 : 10) : (room.incident === 'breach' ? 20 : 16);
+      room.repairing = baseTime / (room.emergencyBreach ? Math.max(.55,roomEfficiency(room)) : roomEfficiency(room));
+      room.task = room.crew.includes('engineer') ? 'Инженер герметизирует отсек' : room.crew.length ? 'Экипаж борется за живучесть' : 'Аварийная автоматика ведёт ремонт';
     } else if (room.water >= 1) {
       room.pumping = !room.pumping;
       room.task = room.pumping ? 'Осушительные помпы работают' : 'Откачка воды остановлена';
@@ -349,7 +434,8 @@
 
   function start() {
     initAudio(); reset(); running = true; startedAt = performance.now(); last = performance.now();
-    state.nextIncidentAt = performance.now() + (24 + Math.random() * 8) * 1000;
+    state.nextIncidentAt = performance.now() + (65 + Math.random() * 12) * 1000;
+    state.emergencyAt = performance.now() + 32000;
     ui.intro.classList.remove('visible'); ui.end.classList.remove('visible'); ui.journal.classList.remove('visible'); ui.crewScreen.classList.remove('visible');
     log('Получен слабый сигнал. Используйте сонар для поиска.');
     requestAnimationFrame(loop);
@@ -403,9 +489,9 @@
 
   function ping() {
     const sonarOnline = state.rooms.sonar.health > 0 && state.rooms.sonar.water < 70 && !state.rooms.sonar.incident;
-    const cost = Math.ceil((crewAt('sonar','sonar') ? 14 : 18) / (.72 + roomEfficiency(state.rooms.sonar)*.28));
+    const sonarPower=clamp(state.power.sonar/15,.35,1.8), cost = Math.ceil((crewAt('sonar','sonar') ? 14 : 18) / (.72 + roomEfficiency(state.rooms.sonar)*.28) / Math.sqrt(sonarPower));
     if (!running || !sonarOnline || state.energy < cost || state.pingActive) return;
-    initAudio(); sonarSound(); state.energy -= cost; state.pingRadius = 8; state.pingActive = true; state.pingId++;
+    initAudio(); sonarSound(); state.energy -= cost; state.pingRadius = 8; state.pingActive = true; state.pingId++; state.noise=Math.min(100,state.noise+35);
     log('Импульс отправлен. Анализ отражений…');
   }
 
@@ -488,6 +574,8 @@
 
   function updateInteriorSystems(dt) {
     const now = performance.now();
+    if(state.emergencyPhase===0&&state.emergencyAt&&now>=state.emergencyAt)startEmergencyMission(now);
+    updateEmergencyMission(now);
     Object.entries(state.transit).forEach(([id, trip]) => {
       if (now >= trip.arriveAt) {
         const room = state.rooms[trip.target]; if (room && room.crew.length < 2) room.crew.push(id);
@@ -496,15 +584,16 @@
       }
     });
 
-    if (state.nextIncidentAt && now >= state.nextIncidentAt) {
+    if (state.emergencyPhase!==1 && state.nextIncidentAt && now >= state.nextIncidentAt) {
       triggerIncident();
       state.nextIncidentAt = now + (45 + Math.random() * 35) * 1000;
     }
     state.outsideTemperature = clamp(8-state.depth*.012,-5,8);
     const movingDemand = Math.hypot(state.targetX-state.x,state.targetY-state.y)>8 ? (state.silent ? .45 : 1) : .18;
+    const propulsionPower=clamp(state.power.propulsion/35,.2,1.45), pumpPower=clamp(state.power.pumps/25,.18,1.7);
     const thermalTargets = {
-      sonar: 17+state.energy*.045,
-      command: 19+state.energy*.04,
+      sonar: 17+state.energy*.045+(state.power.life-25)*.16,
+      command: 19+state.energy*.04+(state.power.life-25)*.16,
       engine: 31+movingDemand*13+(100-state.energy)*.035,
       lab: 18+state.energy*.045
     };
@@ -535,7 +624,7 @@
       const def = room.incident ? incidentDefs[room.incident] : null;
       if (def) {
         hasAlert = true; room.health = Math.max(0, room.health - def.damage*dt);
-        if (def.inflow) room.water = Math.min(100, room.water + def.inflow * dt * (1 + state.depth / 1500));
+        if (def.inflow) room.water = Math.min(100, room.water + def.inflow * dt * (1 + state.depth / 1500) * (room.emergencyBreach ? .35 : 1));
         if (room.incident === 'leak') state.oxygen -= dt*.18;
         if (room.incident === 'short') state.energy -= dt*.5;
         if (room.incident === 'overheat') state.hull -= dt*.16;
@@ -544,15 +633,15 @@
       if (room.repairing > 0) {
         room.repairing -= dt;
         if (room.repairing <= 0) {
-          log(`${def.name} устранена: ${roomDefs[room.id].name}.`); room.incident = null; room.health = Math.min(100,room.health+18);
+          log(`${def.name} устранена: ${roomDefs[room.id].name}.`); room.incident = null; room.emergencyBreach=false; room.health = Math.min(100,room.health+18);
           room.task = room.water >= 1 ? 'Корпус герметичен — требуется откачка' : roomDefs[room.id].task;
         }
       }
       if (room.pumping) {
-        if (!room.crew.length || state.energy <= 0) { room.pumping = false; room.task = 'Откачка остановлена'; }
+        if (state.energy <= 0) { room.pumping = false; room.task = 'Откачка остановлена'; }
         else {
-          const pumpRate = (room.crew.includes('engineer') ? 4.6 : 2.7)*roomEfficiency(room);
-          room.water = Math.max(0, room.water - pumpRate * dt); state.energy -= .14 * dt;
+          const pumpRate = (room.crew.includes('engineer') ? 4.6 : room.crew.length ? 2.7 : 1.45)*roomEfficiency(room)*pumpPower;
+          room.water = Math.max(0, room.water - pumpRate * dt); state.energy -= .09 * pumpPower * dt;
           room.task = `Откачка воды · ${Math.round(room.water)}%`;
           if (room.water <= 0) { room.pumping = false; room.floodWarned = false; room.task = roomDefs[room.id].task; log(`${roomDefs[room.id].name} полностью осушен.`); }
         }
@@ -560,6 +649,15 @@
       if (room.water > 45) room.health = Math.max(0, room.health - (room.water / 100) * .035 * dt);
       if (room.water >= 85 && !room.floodWarned) { room.floodWarned = true; log(`${roomDefs[room.id].name}: критическое затопление!`, true); alertSound(); }
       if (room.water >= 1) hasAlert = true;
+      room.crew.forEach(id=>{
+        const vitals=state.crewVitals[id];if(!vitals)return;
+        const working=room.repairing>0||room.pumping||room.incident, thermalStress=Math.max(0,8-room.temperature)+Math.max(0,room.temperature-42);
+        vitals.fatigue=clamp(vitals.fatigue+dt*(working?.34:-.09),0,100);
+        vitals.stress=clamp(vitals.stress+dt*((room.incident?1.05:0)+(room.water>35?.38:0)+(state.noise>70?.12:0)-(!working?.12:0)),0,100);
+        vitals.bodyTemp+=(clamp(room.temperature,0,55)-20-(vitals.bodyTemp-36.6)*5)*dt*.006;
+        if(thermalStress>8||room.water>72||room.incident==='fire')vitals.health=clamp(vitals.health-dt*(thermalStress*.008+room.water*.0015+(room.incident==='fire'?.28:0)),1,100);
+        else if(vitals.fatigue<65&&vitals.stress<65)vitals.health=clamp(vitals.health+dt*.025,1,100);
+      });
     });
 
     const order = ['sonar','command','engine','lab'];
@@ -567,10 +665,17 @@
       const room = state.rooms[id]; if (room.water < 78) return;
       [order[index-1],order[index+1]].filter(Boolean).forEach(adjacentId => {
         const adjacent = state.rooms[adjacentId];
-        if (adjacent.water < room.water - 18) adjacent.water = Math.min(100, adjacent.water + .12 * dt);
+        const key=roomIndex(id)<roomIndex(adjacentId)?`${id}-${adjacentId}`:`${adjacentId}-${id}`;
+        if (!state.bulkheads[key]&&adjacent.water < room.water - 18) adjacent.water = Math.min(100, adjacent.water + .12 * dt);
       });
     });
     state.floodLevel = getFloodLevel();
+    const weights={sonar:-1.5,command:-.5,engine:.5,lab:1.5};
+    const targetTrim=Object.values(state.rooms).reduce((sum,room)=>sum+room.water*weights[room.id],0)/15;
+    state.trim+=(clamp(targetTrim,-12,12)-state.trim)*dt*.8;
+    const activePumps=Object.values(state.rooms).filter(room=>room.pumping).length,activeRepairs=Object.values(state.rooms).filter(room=>room.repairing>0).length;
+    const moving=movingDemand>.2, targetNoise=6+(moving?(state.silent?9:27)*propulsionPower:2)+activePumps*9*pumpPower+activeRepairs*6+(state.coolingOn?8:0)+(state.pingActive?28:0)+Math.abs(state.trim)*1.2;
+    state.noise+=(clamp(targetNoise,0,100)-state.noise)*dt*(targetNoise>state.noise?2.2:.55);
 
     if (state.passiveOn) {
       state.passiveTimer -= dt;
@@ -589,14 +694,14 @@
     else if (!lab.pumping && lab.water < 1) lab.task = 'Нет образцов для анализа';
 
     state.saveTimer -= dt;
-    if (state.saveTimer <= 0) { state.saveTimer = 2; if (state.view === 'interior' || hasAlert) renderInterior(); }
+    if (state.saveTimer <= 0) { state.saveTimer = .5; if (state.view === 'interior' || hasAlert) renderInterior(); }
   }
 
   function update(dt) {
     updateInteriorSystems(dt);
     const dx = state.targetX - state.x, dy = state.targetY - state.y, dist = Math.hypot(dx, dy);
-    const propulsionEfficiency = Math.min(roomEfficiency(state.rooms.engine), .65+roomEfficiency(state.rooms.command)*.35);
-    const speed = (state.silent ? 42 : 96)*propulsionEfficiency;
+    const propulsionEfficiency = Math.min(roomEfficiency(state.rooms.engine), .65+roomEfficiency(state.rooms.command)*.35)*clamp(state.power.propulsion/35,.2,1.45);
+    const speed = (state.silent ? 42 : 96)*propulsionEfficiency*Math.max(.48,1-Math.abs(state.trim)*.035);
     if (dist > 8) {
       const desired = Math.atan2(dy, dx), diff = angleDiff(desired, state.angle);
       state.angle += clamp(diff, -2.4 * dt, 2.4 * dt);
@@ -612,13 +717,13 @@
     if (state.depth < 12) {
       state.oxygen = Math.min(100, state.oxygen + dt * 5.5);
       if (!state.surfaced) { state.surfaced = true; log('Поверхность достигнута. Забортный воздух поступает в систему.'); }
-    } else { state.surfaced = false; state.oxygen -= dt * (.205 + depthLoad * .12); }
+    } else { state.surfaced = false; state.oxygen -= dt * (.205 + depthLoad * .12) * clamp(25/state.power.life,.65,2.5); }
     const engineEfficiency = Math.max(.08,state.rooms.engine.health/100) * (state.rooms.engine.incident ? .55 : 1) * Math.max(.12,1-state.rooms.engine.water/112);
     state.energy = clamp(state.energy + dt * ((state.silent ? 2.4 : 1.35) + (crewAt('engineer','engine') ? .42 : 0)) * engineEfficiency - dt * depthLoad * .34 - dt*state.temperatureLoad*.018 - (state.coolingOn ? dt*.72 : 0),0,100);
     if(state.coolingOn&&(state.energy<=1||state.rooms.engine.water>=75||state.rooms.engine.health<=0)){state.coolingOn=false;ui.cooling.classList.remove('active');log('Аварийное охлаждение отключилось.');}
     if (audioNodes) {
       audioNodes.ambient.gain.setTargetAtTime(.012 + depthLoad * .018, audio.currentTime, .4);
-      audioNodes.propeller.gain.setTargetAtTime(state.silent ? .003 : .013, audio.currentTime, .3);
+      audioNodes.propeller.gain.setTargetAtTime(.002+state.noise*.00013, audio.currentTime, .3);
     }
     if (audio && state.depth > 820 && performance.now() > nextCreak) {
       tone(105 + Math.random() * 55, 1.3, .012 + depthLoad * .02, 'sawtooth'); nextCreak = performance.now() + 5000 + Math.random() * 8000;
@@ -631,7 +736,7 @@
 
     if (state.pingActive) {
       const sonarBoost = crewAt('sonar','sonar') ? 1.3 : 1;
-      state.pingRadius += dt * 760 * sonarBoost;
+      state.pingRadius += dt * 760 * sonarBoost * clamp(state.power.sonar/15,.35,1.8);
       entities.forEach(e => {
         const d = Math.hypot(e.x - state.x, e.y - state.y, (e.z - state.depth) * 1.15);
         if (Math.abs(d - state.pingRadius) < 42 && !e.collected) {
@@ -662,11 +767,12 @@
       }
       if (e.type === 'leviathan') {
         const hear = Math.hypot(e.x - state.x, e.y - state.y, (e.z-state.depth)*.7);
-        if (!state.silent && hear < 520) {
+        const acousticRange=260+state.noise*5.2;
+        if (state.noise>24 && hear < acousticRange) {
           const a = Math.atan2(state.y - e.y, state.x - e.x);
           e.x += Math.cos(a) * dt * 72; e.y += Math.sin(a) * dt * 72; e.found = true; e.reveal = 1.2;
         } else { e.x += Math.cos(e.phase * .23) * dt * 15; e.y += Math.sin(e.phase * .19) * dt * 15; }
-        if (hear < 72 && e.reveal > 0) { damage(12 * dt, 'Крупный контакт у борта! Включите тихий ход.'); }
+        if (hear < 72 && e.reveal > 0) { damage(12 * dt, 'Крупный контакт у борта! Снизьте акустический шум.'); }
       }
       if (e.type === 'beacon' && state.missionComplete && horizontal < 90 && state.depth < 14) win();
     });
@@ -698,7 +804,7 @@
     ui.zone.textContent = zone;
     const vertical = state.targetDepth - state.depth;
     ui.ballast.textContent = state.floodLevel >= 4 ? `ЗАТОПЛЕНИЕ ${Math.round(state.floodLevel)}%` : Math.abs(vertical) < 4 ? 'НЕЙТРАЛЬНО' : vertical > 0 ? 'БАЛЛАСТ +' : 'ПРОДУВКА';
-    const pingCost = Math.ceil((crewAt('sonar','sonar') ? 14 : 18) / (.72+roomEfficiency(state.rooms.sonar)*.28)), repairCost = crewAt('engineer','engine') ? 20 : 25;
+    const pingCost = Math.ceil((crewAt('sonar','sonar') ? 14 : 18) / (.72+roomEfficiency(state.rooms.sonar)*.28) / Math.sqrt(clamp(state.power.sonar/15,.35,1.8))), repairCost = crewAt('engineer','engine') ? 20 : 25;
     ui.ping.disabled = state.rooms.sonar.health <= 0 || state.rooms.sonar.water >= 70 || !!state.rooms.sonar.incident || state.energy < pingCost || state.pingActive; ui.ping.querySelector('small').textContent = state.rooms.sonar.water >= 70 ? 'отсек затоплен' : state.rooms.sonar.health <= 0 ? 'пост отключён' : `−${pingCost} энергии`;
     ui.cooling.disabled=state.rooms.engine.health<=0||state.rooms.engine.water>=75||state.energy<5;ui.cooling.querySelector('small').textContent=state.coolingOn?'расход энергии':'реактор';
     ui.repair.disabled = state.energy < repairCost || state.hull >= 99; ui.repair.querySelector('small').textContent = `−${repairCost} энергии`;
@@ -859,6 +965,8 @@
     card.addEventListener('click', () => assignCrewToRoom(card.dataset.room));
     card.querySelector('.room-action').addEventListener('click', event => { event.stopPropagation(); startRoomRepair(card.dataset.room); });
   });
+  document.querySelectorAll('[data-bulkhead]').forEach(button=>button.addEventListener('click',()=>toggleBulkhead(button.dataset.bulkhead)));
+  document.querySelectorAll('[data-power]').forEach(input=>input.addEventListener('input',()=>setPower(input.dataset.power,input.value,input)));
   ui.passive.addEventListener('click', togglePassive);
   ui.ping.addEventListener('click', ping); ui.silent.addEventListener('click', toggleSilent); ui.cooling.addEventListener('click',toggleCooling); ui.repair.addEventListener('click', repair);
   ui.action.addEventListener('click', interact);

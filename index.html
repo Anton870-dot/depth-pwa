@@ -8,7 +8,7 @@
   <title>Глубина</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
   <main id="game" aria-label="Игра Глубина">
@@ -82,6 +82,24 @@
         </article>
       </div>
 
+      <section class="damage-control" aria-label="Пост борьбы за живучесть">
+        <header><div><small>ЦЕНТРАЛЬНЫЙ ПОСТ</small><b>БОРЬБА ЗА ЖИВУЧЕСТЬ</b></div><div class="survival-readouts"><span id="noiseReadout">ШУМ 12%</span><span id="trimReadout">ДИФФЕРЕНТ 0°</span></div></header>
+        <div class="bulkhead-strip">
+          <span>ПЕРЕБОРКИ</span>
+          <button type="button" data-bulkhead="sonar-command"><b>01—02</b><small>ОТКРЫТА</small></button>
+          <button type="button" data-bulkhead="command-engine"><b>02—03</b><small>ОТКРЫТА</small></button>
+          <button type="button" data-bulkhead="engine-lab"><b>03—04</b><small>ОТКРЫТА</small></button>
+        </div>
+        <div class="power-board">
+          <div class="power-heading"><span>РАСПРЕДЕЛЕНИЕ МОЩНОСТИ</span><strong id="powerBudget">100 / 100</strong></div>
+          <label>ХОДОВАЯ <input type="range" min="5" max="50" step="5" value="35" data-power="propulsion"><output>35</output></label>
+          <label>ПОМПЫ <input type="range" min="5" max="50" step="5" value="25" data-power="pumps"><output>25</output></label>
+          <label>ЖИЗНЕОБЕСПЕЧЕНИЕ <input type="range" min="5" max="50" step="5" value="25" data-power="life"><output>25</output></label>
+          <label>СОНАР <input type="range" min="5" max="50" step="5" value="15" data-power="sonar"><output>15</output></label>
+        </div>
+        <div id="emergencyObjective" class="emergency-objective"><small>АВАРИЙНАЯ ЗАДАЧА</small><b>ОЖИДАНИЕ</b><span>Центральный пост готов к борьбе за живучесть.</span></div>
+      </section>
+
       <section class="navigation-console">
         <div class="mini-sonar-panel">
           <canvas id="miniSonar" width="260" height="180" aria-label="Навигационный сонар"></canvas>
@@ -117,6 +135,7 @@
         <p>Исследовательская подлодка «Нереида» получила последний сигнал экспедиции, пропавшей под ледяным разломом.</p>
         <div class="briefing">
           <span>Управляйте лодкой из её отсеков.</span>
+          <span>Распределяйте мощность и герметизируйте аварийные отсеки.</span>
           <span>Коснитесь малого сонара, чтобы задать курс.</span>
           <span>Тихий ход помогает скрыться от контактов.</span>
           <span>Меняйте глубину и исследуйте объекты вручную.</span>
@@ -155,6 +174,6 @@
       </section>
     </div>
   </main>
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
