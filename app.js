@@ -10,11 +10,27 @@
     mission: $('missionTitle'), log: $('log'), ping: $('pingBtn'), silent: $('silentBtn'), repair: $('repairBtn'),
     samples: $('samples'), zone: $('zoneName'), targetDepth: $('targetDepth'), action: $('actionBtn'),
     ballast: $('ballastMode'), crewCount: $('crewCount'), credits: $('credits'), crewSlots: $('crewSlots'), crewCards: $('crewCards'),
+    interior: $('interiorView'), interiorCrew: $('interiorCrew'), interiorStatus: $('interiorStatus'), interiorAlert: $('interiorAlert'),
+    passive: $('passiveBtn'), passiveContact: $('passiveContact'), passiveBearing: $('passiveBearing'),
     intro: $('intro'), end: $('endScreen'), journal: $('journal'), crewScreen: $('crewScreen'), journalEntries: $('journalEntries'),
     endEyebrow: $('endEyebrow'), endTitle: $('endTitle'), endText: $('endText'), best: $('bestRun')
   };
 
   const WORLD = 3600;
+  const roomDefs = {
+    sonar: { name: 'Гидроакустический пост', task: 'Пассивное наблюдение' },
+    command: { name: 'Командный отсек', task: 'Управление экспедицией' },
+    engine: { name: 'Машинное отделение', task: 'Реактор стабилен' },
+    lab: { name: 'Лаборатория', task: 'Нет образцов для анализа' }
+  };
+  const incidentDefs = {
+    leak: { name: 'ПОДТЕКАНИЕ', rooms: ['sonar','command','engine','lab'], damage: .1, inflow: .48 },
+    breach: { name: 'ПРОБОИНА КОРПУСА', rooms: ['sonar','command','engine','lab'], damage: .18, inflow: 1.45 },
+    short: { name: 'КОРОТКОЕ ЗАМЫКАНИЕ', rooms: ['sonar','command','lab'], damage: .06 },
+    overheat: { name: 'ПЕРЕГРЕВ РЕАКТОРА', rooms: ['engine'], damage: .08 },
+    fire: { name: 'ПОЖАР', rooms: ['command','engine','lab'], damage: .16 },
+    equipment: { name: 'ПОВРЕЖДЕНИЕ ОБОРУДОВАНИЯ', rooms: ['sonar','command','engine','lab'], damage: .04 }
+  };
   const crewCatalog = [
     { id: 'sonar', icon: '◉', name: 'Мира Волкова', role: 'ГИДРОАКУСТИК', cost: 480, skill: 'Дальность сонара +30%, импульс расходует меньше энергии.' },
     { id: 'engineer', icon: '⚙', name: 'Илья Корин', role: 'БОРТИНЖЕНЕР', cost: 420, skill: 'Усиленный ремонт и ускоренное восстановление энергии.' },
@@ -32,13 +48,19 @@
   function loadProfile() {
     try {
       const saved = JSON.parse(localStorage.getItem('depth-profile') || 'null');
-      if (saved && Array.isArray(saved.crew)) return { credits: Number(saved.credits) || 0, crew: saved.crew.filter(id => crewCatalog.some(c => c.id === id)).slice(0, 2) };
+      if (saved && Array.isArray(saved.crew)) return {
+        credits: Number(saved.credits) || 0,
+        crew: saved.crew.filter(id => crewCatalog.some(c => c.id === id)).slice(0, 2),
+        assignments: saved.assignments && typeof saved.assignments === 'object' ? saved.assignments : {},
+        researched: Number(saved.researched) || 0
+      };
     } catch (_) {}
-    return { credits: 1000, crew: [] };
+    return { credits: 1000, crew: [], assignments: {}, researched: 0 };
   }
 
   function saveProfile() { localStorage.setItem('depth-profile', JSON.stringify(profile)); }
   function hasCrew(id) { return (state?.crew || profile.crew).includes(id); }
+  function crewAt(id, roomId) { return !!state?.rooms?.[roomId]?.crew.includes(id) && !state.transit[id]; }
 
   function renderCrew() {
     ui.credits.textContent = profile.credits;
@@ -55,9 +77,24 @@
   function toggleCrew(id) {
     const person = crewCatalog.find(c => c.id === id); if (!person) return;
     const index = profile.crew.indexOf(id);
-    if (index >= 0) { profile.crew.splice(index, 1); profile.credits += person.cost; }
+    if (index >= 0) {
+      profile.crew.splice(index, 1); profile.credits += person.cost; delete profile.assignments[id];
+      if (state?.rooms) Object.values(state.rooms).forEach(room => room.crew = room.crew.filter(member => member !== id));
+    }
     else if (profile.crew.length < 2 && profile.credits >= person.cost) { profile.crew.push(id); profile.credits -= person.cost; }
-    saveProfile(); if (state) state.crew = [...profile.crew]; renderCrew(); updateHud();
+    saveProfile(); if (state) state.crew = [...profile.crew]; renderCrew(); renderInterior(); updateHud();
+  }
+
+  function createRooms() {
+    const rooms = {};
+    Object.entries(roomDefs).forEach(([id, def]) => rooms[id] = { id, health: 100, water: 0, incident: null, crew: [], task: def.task, repairing: 0, pumping: false, floodWarned: false });
+    profile.crew.forEach(id => {
+      const roomId = profile.assignments[id] || ({sonar:'sonar',engineer:'engine',biologist:'lab'}[id]);
+      profile.assignments[id] = roomId;
+      if (rooms[roomId] && rooms[roomId].crew.length < 2) rooms[roomId].crew.push(id);
+    });
+    saveProfile();
+    return rooms;
   }
 
   function reset() {
@@ -67,6 +104,8 @@
       angle: -Math.PI / 2, oxygen: 100, energy: 100, hull: 100, fragments: 0,
       depth: 640, targetDepth: 640, silent: false, pingRadius: 0, pingActive: false, pingId: 0, cameraShake: 0,
       missionComplete: false, distance: 0, samples: 0, nearby: null, pressureWarned: false, crew: [...profile.crew], surfaced: false,
+      view: 'sonar', selectedCrew: null, rooms: createRooms(), transit: {}, passiveOn: false, passiveTimer: 0,
+      nextIncidentAt: 0, floodLevel: 0, analysisProgress: 0, researched: profile.researched || 0, saveTimer: 0,
       journal: [
         { title: 'ПРИКАЗ ЭКСПЕДИЦИИ', text: 'Найти три фрагмента самописца экспедиции «Орфей» и вернуться к навигационному маяку.', unlocked: true },
         { title: 'ЗАПИСЬ 01', text: 'Данные ещё не восстановлены.', unlocked: false },
@@ -93,6 +132,8 @@
     updateHud();
     renderJournal();
     renderCrew();
+    setView('sonar');
+    renderInterior();
     ui.log.innerHTML = '';
     log('Бортовые системы запущены. Ожидается команда.');
   }
@@ -101,6 +142,121 @@
     const bands = { wreck: [520,760,980], mine: [460,620,820,980], vent: [920], specimen: [430,610,790,930,1060], flora: [500,700,880,1010], leviathan: [780], beacon: [0] };
     const choices = bands[type] || [640], z = choices[index % choices.length];
     return { type, x, y, z, index, found: type === 'beacon', collected: false, reveal: type === 'beacon' ? 999 : 0, lastEcho: -1, phase: index * 1.7, vx: 0, vy: 0 };
+  }
+
+  function setView(view) {
+    if (!state) return;
+    state.view = view;
+    $('game').classList.toggle('interior-mode', view === 'interior');
+    document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
+    if (view === 'interior') renderInterior();
+  }
+
+  function renderInterior() {
+    if (!state?.rooms) return;
+    const incidents = Object.values(state.rooms).filter(room => room.incident);
+    const flooded = Object.values(state.rooms).filter(room => room.water >= 1), floodLevel = getFloodLevel();
+    $('game').classList.toggle('alert-mode', incidents.length > 0 || floodLevel >= 8);
+    ui.interiorStatus.textContent = incidents.length ? 'АВАРИЙНЫЙ РЕЖИМ' : flooded.length ? 'БОРЬБА ЗА ЖИВУЧЕСТЬ' : 'СИСТЕМЫ В НОРМЕ';
+    ui.interiorAlert.textContent = incidents.length || flooded.length ? `АВАРИЙ: ${incidents.length} · ВОДА: ${Math.round(floodLevel)}%` : 'НЕИСПРАВНОСТЕЙ НЕТ';
+    ui.interiorCrew.innerHTML = state.crew.length ? state.crew.map(id => {
+      const person = crewCatalog.find(member => member.id === id), room = Object.values(state.rooms).find(item => item.crew.includes(id));
+      const moving = state.transit[id], place = moving ? `ПЕРЕХОД: ${roomDefs[moving.target].name}` : room ? roomDefs[room.id].name : 'НЕ НАЗНАЧЕН';
+      return `<button type="button" class="crew-token${state.selectedCrew === id ? ' selected' : ''}${moving ? ' transit' : ''}" data-assign-crew="${id}"><b>${person.icon} ${person.name}</b>${place}</button>`;
+    }).join('') : '<span class="crew-token">Сначала наймите специалистов</span>';
+    ui.interiorCrew.querySelectorAll('[data-assign-crew]').forEach(button => button.addEventListener('click', event => {
+      event.stopPropagation(); selectInteriorCrew(button.dataset.assignCrew);
+    }));
+
+    document.querySelectorAll('.compartment').forEach(card => {
+      const room = state.rooms[card.dataset.room], health = Math.max(0, room.health);
+      card.classList.toggle('damaged', !!room.incident); card.classList.toggle('flooded', room.water >= 1); card.classList.toggle('disabled-room', health <= 0 || room.water >= 90);
+      card.classList.toggle('assignment-target', !!state.selectedCrew && !state.transit[state.selectedCrew]);
+      card.style.setProperty('--water-level', `${Math.min(100,room.water)}%`);
+      card.querySelector('.room-health em').style.width = `${health}%`;
+      card.querySelector('.room-health span').textContent = `${Math.round(health)}%`;
+      card.querySelector('.room-water em').style.width = `${Math.min(100,room.water)}%`;
+      card.querySelector('.room-water span').textContent = `ВОДА ${Math.round(room.water)}%`;
+      card.querySelector('.room-task').textContent = room.task;
+      card.querySelector('.room-crew').innerHTML = room.crew.map(id => {
+        const person = crewCatalog.find(member => member.id === id); return `<span class="room-person" title="${person.name}">${person.icon}</span>`;
+      }).join('');
+      card.querySelector('.room-incident').textContent = room.incident ? incidentDefs[room.incident].name : '';
+      const action = card.querySelector('.room-action');
+      action.disabled = !room.crew.length || room.repairing > 0;
+      if (room.repairing > 0) action.textContent = `ЗАДЕЛКА · ${Math.ceil(room.repairing)}с`;
+      else if (!room.crew.length) action.textContent = 'НУЖЕН ЧЛЕН ЭКИПАЖА';
+      else if (room.incident) action.textContent = room.incident === 'breach' ? 'ЗАДЕЛАТЬ ПРОБОИНУ' : room.incident === 'leak' ? 'УСТРАНИТЬ ТЕЧЬ' : 'УСТРАНИТЬ АВАРИЮ';
+      else action.textContent = room.pumping ? 'ОСТАНОВИТЬ ОТКАЧКУ' : 'ВКЛЮЧИТЬ ОТКАЧКУ';
+    });
+  }
+
+  function getFloodLevel() {
+    if (!state?.rooms) return 0;
+    return Object.values(state.rooms).reduce((sum, room) => sum + room.water, 0) / 4;
+  }
+
+  function selectInteriorCrew(id) {
+    if (!state.crew.includes(id) || state.transit[id]) return;
+    state.selectedCrew = state.selectedCrew === id ? null : id; renderInterior();
+  }
+
+  function assignCrewToRoom(roomId) {
+    const id = state.selectedCrew, target = state.rooms[roomId];
+    if (!id || !target || state.transit[id] || target.crew.length >= 2 || target.crew.includes(id)) return;
+    Object.values(state.rooms).forEach(room => room.crew = room.crew.filter(member => member !== id));
+    state.transit[id] = { target: roomId, arriveAt: performance.now() + 3000 };
+    state.selectedCrew = null; log(`${crewCatalog.find(p => p.id === id).name} направляется в отсек.`); renderInterior();
+  }
+
+  function togglePassive() {
+    const room = state.rooms.sonar;
+    if (!running || room.health <= 0 || room.water >= 70) return;
+    state.passiveOn = !state.passiveOn; state.passiveTimer = 0;
+    ui.passive.classList.toggle('active', state.passiveOn); ui.passive.textContent = state.passiveOn ? 'ВЫКЛЮЧИТЬ' : 'ВКЛЮЧИТЬ';
+    log(state.passiveOn ? 'Пассивный гидрофон активирован. Соблюдайте тишину.' : 'Пассивный гидрофон отключён.');
+  }
+
+  function updatePassiveContact() {
+    if (!state.passiveOn || state.rooms.sonar.health <= 0 || state.rooms.sonar.water >= 70) {
+      ui.passiveContact.textContent = state.rooms.sonar.water >= 70 ? 'ОТСЕК ЗАТОПЛЕН' : state.rooms.sonar.health <= 0 ? 'ПОСТ ОТКЛЮЧЁН' : 'РЕЖИМ ОЖИДАНИЯ';
+      ui.passiveBearing.textContent = 'Контакты не обнаружены'; return;
+    }
+    const range = crewAt('sonar','sonar') ? 1150 : 720;
+    const candidates = entities.filter(e => !e.collected && ['mine','wreck','leviathan','specimen'].includes(e.type))
+      .map(e => ({ e, d: Math.hypot(e.x-state.x,e.y-state.y,(e.z-state.depth)*.75) })).filter(item => item.d < range).sort((a,b) => a.d-b.d);
+    if (!candidates.length) { ui.passiveContact.textContent = 'ТОЛЬКО ФОНОВЫЙ ШУМ'; ui.passiveBearing.textContent = 'Контакты вне диапазона'; return; }
+    const {e,d} = candidates[0], angle = Math.atan2(e.y-state.y,e.x-state.x), relative = angleDiff(angle,state.angle)*180/Math.PI;
+    const side = Math.abs(relative) < 15 ? 'ПРЯМО ПО КУРСУ' : relative > 0 ? `СПРАВА ${Math.round(Math.abs(relative))}°` : `СЛЕВА ${Math.round(Math.abs(relative))}°`;
+    const strength = d < range*.3 ? 'СИЛЬНЫЙ' : d < range*.65 ? 'СРЕДНИЙ' : 'СЛАБЫЙ';
+    const type = e.type === 'leviathan' || e.type === 'specimen' ? 'БИОЛОГИЧЕСКИЙ' : 'МЕХАНИЧЕСКИЙ';
+    ui.passiveContact.textContent = `${strength} · ${type}`; ui.passiveBearing.textContent = side;
+  }
+
+  function triggerIncident(forcedType = null) {
+    const available = Object.keys(state.rooms).filter(id => !state.rooms[id].incident);
+    if (!available.length) return;
+    const possible = Object.entries(incidentDefs).filter(([type,def]) => (!forcedType || type === forcedType) && def.rooms.some(id => available.includes(id)));
+    if (!possible.length) return;
+    const [type, def] = possible[Math.floor(Math.random()*possible.length)];
+    const rooms = def.rooms.filter(id => available.includes(id)), roomId = rooms[Math.floor(Math.random()*rooms.length)], room = state.rooms[roomId];
+    room.incident = type; room.repairing = 0; room.pumping = false;
+    if (type === 'equipment') room.health = Math.max(0,room.health-16);
+    if (type === 'breach') room.water = Math.max(room.water, 4);
+    alertSound(); log(`${def.name}: ${roomDefs[roomId].name}.`, true); renderInterior();
+  }
+
+  function startRoomRepair(roomId) {
+    const room = state.rooms[roomId]; if (!room || !room.crew.length || room.repairing > 0) return;
+    if (room.incident) {
+      room.repairing = room.crew.includes('engineer') ? 5 : room.incident === 'breach' ? 13 : 10;
+      room.task = room.crew.includes('engineer') ? 'Инженер герметизирует отсек' : 'Экипаж борется за живучесть';
+    } else if (room.water >= 1) {
+      room.pumping = !room.pumping;
+      room.task = room.pumping ? 'Осушительные помпы работают' : 'Откачка воды остановлена';
+      log(`${roomDefs[roomId].name}: откачка воды ${room.pumping ? 'начата' : 'остановлена'}.`);
+    }
+    renderInterior();
   }
 
   function resize() {
@@ -174,6 +330,7 @@
 
   function start() {
     initAudio(); reset(); running = true; startedAt = performance.now(); last = performance.now();
+    state.nextIncidentAt = performance.now() + (24 + Math.random() * 8) * 1000;
     ui.intro.classList.remove('visible'); ui.end.classList.remove('visible'); ui.journal.classList.remove('visible'); ui.crewScreen.classList.remove('visible');
     log('Получен слабый сигнал. Используйте сонар для поиска.');
     requestAnimationFrame(loop);
@@ -190,8 +347,9 @@
   }
 
   function ping() {
-    const cost = hasCrew('sonar') ? 14 : 18;
-    if (!running || state.energy < cost || state.pingActive) return;
+    const sonarOnline = state.rooms.sonar.health > 0 && state.rooms.sonar.water < 70 && !state.rooms.sonar.incident;
+    const cost = crewAt('sonar','sonar') ? 14 : 18;
+    if (!running || !sonarOnline || state.energy < cost || state.pingActive) return;
     initAudio(); sonarSound(); state.energy -= cost; state.pingRadius = 8; state.pingActive = true; state.pingId++;
     log('Импульс отправлен. Анализ отражений…');
   }
@@ -203,7 +361,7 @@
   }
 
   function repair() {
-    const cost = hasCrew('engineer') ? 20 : 25, amount = hasCrew('engineer') ? 36 : 24;
+    const cost = crewAt('engineer','engine') ? 20 : 25, amount = crewAt('engineer','engine') ? 36 : 24;
     if (!running || state.energy < cost || state.hull >= 99) return;
     state.energy -= cost; state.hull = Math.min(100, state.hull + amount); tone(320, .35, .035, 'triangle');
     log('Ремонтные дроны восстановили часть корпуса.');
@@ -239,9 +397,8 @@
         log('В данных указано: объект следует за «Нереидой». Вернитесь к маяку и всплывите!', true);
       }
     } else if (e.type === 'specimen' && !e.collected) {
-      e.collected = true; state.samples++; collectSound(); state.oxygen = Math.min(100, state.oxygen + (hasCrew('biologist') ? 12 : 5));
-      profile.credits += hasCrew('biologist') ? 180 : 110; saveProfile(); renderCrew();
-      log(`Биообразец сохранён. Научный грант: +${hasCrew('biologist') ? 180 : 110} CR.`);
+      e.collected = true; state.samples++; collectSound(); state.oxygen = Math.min(100, state.oxygen + 4);
+      log('Биообразец сохранён. Назначьте биолога в лабораторию для анализа.');
     } else if (e.type === 'vent') {
       state.energy = Math.min(100, state.energy + 38); state.oxygen = Math.min(100, state.oxygen + 12);
       e.cooldown = 18; log('Термогенератор заряжен. Кислород частично восстановлен.');
@@ -267,7 +424,84 @@
   function openCrew() { renderCrew(); ui.crewScreen.classList.add('visible'); }
   function closeCrew() { ui.crewScreen.classList.remove('visible'); last = performance.now(); }
 
+  function updateInteriorSystems(dt) {
+    const now = performance.now();
+    Object.entries(state.transit).forEach(([id, trip]) => {
+      if (now >= trip.arriveAt) {
+        const room = state.rooms[trip.target]; if (room && room.crew.length < 2) room.crew.push(id);
+        profile.assignments[id] = trip.target; delete state.transit[id]; saveProfile();
+        log(`${crewCatalog.find(p => p.id === id).name} прибыл в ${roomDefs[trip.target].name.toLowerCase()}.`); renderInterior();
+      }
+    });
+
+    if (state.nextIncidentAt && now >= state.nextIncidentAt) {
+      triggerIncident();
+      state.nextIncidentAt = now + (45 + Math.random() * 35) * 1000;
+    }
+    let hasAlert = false;
+    Object.values(state.rooms).forEach(room => {
+      const def = room.incident ? incidentDefs[room.incident] : null;
+      if (def) {
+        hasAlert = true; room.health = Math.max(0, room.health - def.damage*dt);
+        if (def.inflow) room.water = Math.min(100, room.water + def.inflow * dt * (1 + state.depth / 1500));
+        if (room.incident === 'leak') state.oxygen -= dt*.18;
+        if (room.incident === 'short') state.energy -= dt*.5;
+        if (room.incident === 'overheat') state.hull -= dt*.16;
+        if (room.incident === 'fire') state.oxygen -= dt*.62;
+      }
+      if (room.repairing > 0) {
+        room.repairing -= dt;
+        if (room.repairing <= 0) {
+          log(`${def.name} устранена: ${roomDefs[room.id].name}.`); room.incident = null; room.health = Math.min(100,room.health+18);
+          room.task = room.water >= 1 ? 'Корпус герметичен — требуется откачка' : roomDefs[room.id].task;
+        }
+      }
+      if (room.pumping) {
+        if (!room.crew.length || state.energy <= 0) { room.pumping = false; room.task = 'Откачка остановлена'; }
+        else {
+          const pumpRate = room.crew.includes('engineer') ? 4.6 : 2.7;
+          room.water = Math.max(0, room.water - pumpRate * dt); state.energy -= .14 * dt;
+          room.task = `Откачка воды · ${Math.round(room.water)}%`;
+          if (room.water <= 0) { room.pumping = false; room.floodWarned = false; room.task = roomDefs[room.id].task; log(`${roomDefs[room.id].name} полностью осушен.`); }
+        }
+      }
+      if (room.water > 45) room.health = Math.max(0, room.health - (room.water / 100) * .035 * dt);
+      if (room.water >= 85 && !room.floodWarned) { room.floodWarned = true; log(`${roomDefs[room.id].name}: критическое затопление!`, true); alertSound(); }
+      if (room.water >= 1) hasAlert = true;
+    });
+
+    const order = ['sonar','command','engine','lab'];
+    order.forEach((id,index) => {
+      const room = state.rooms[id]; if (room.water < 78) return;
+      [order[index-1],order[index+1]].filter(Boolean).forEach(adjacentId => {
+        const adjacent = state.rooms[adjacentId];
+        if (adjacent.water < room.water - 18) adjacent.water = Math.min(100, adjacent.water + .12 * dt);
+      });
+    });
+    state.floodLevel = getFloodLevel();
+
+    if (state.passiveOn) {
+      state.passiveTimer -= dt;
+      if (state.passiveTimer <= 0) { updatePassiveContact(); state.passiveTimer = crewAt('sonar','sonar') ? 1.2 : 3.4; }
+    }
+
+    const lab = state.rooms.lab, waiting = state.samples - state.researched;
+    if (waiting > 0 && crewAt('biologist','lab') && lab.health > 0 && !lab.incident && !lab.pumping && lab.water < 55) {
+      state.analysisProgress += dt * Math.max(.25,lab.health/100); lab.task = `Анализ образца · ${Math.min(100,Math.round(state.analysisProgress/20*100))}%`;
+      if (state.analysisProgress >= 20) {
+        state.analysisProgress = 0; state.researched++; profile.researched = state.researched; profile.credits += 180; saveProfile(); renderCrew();
+        state.journal.push({title:`БИООБРАЗЕЦ ${String(state.researched).padStart(2,'0')}`,text:'Обнаружена ткань, способная перестраиваться под воздействием гидроакустических волн. Исследовательский грант: 180 CR.',unlocked:true});
+        renderJournal(); log('Лабораторный анализ завершён: +180 CR.');
+      }
+    } else if (waiting > 0 && !lab.pumping) lab.task = crewAt('biologist','lab') ? 'Анализ приостановлен' : 'Для анализа требуется Ада Лин';
+    else if (!lab.pumping && lab.water < 1) lab.task = 'Нет образцов для анализа';
+
+    state.saveTimer -= dt;
+    if (state.saveTimer <= 0) { state.saveTimer = 2; if (state.view === 'interior' || hasAlert) renderInterior(); }
+  }
+
   function update(dt) {
+    updateInteriorSystems(dt);
     const dx = state.targetX - state.x, dy = state.targetY - state.y, dist = Math.hypot(dx, dy);
     const speed = state.silent ? 42 : 96;
     if (dist > 8) {
@@ -277,14 +511,17 @@
       state.x += Math.cos(state.angle) * move; state.y += Math.sin(state.angle) * move; state.distance += move;
       if (Math.random() < dt * (state.silent ? 2 : 7)) bubbles.push({ x: state.x - Math.cos(state.angle) * 28, y: state.y - Math.sin(state.angle) * 28, life: 1, s: 7 + Math.random() * 9 });
     }
-    const vertical = state.targetDepth - state.depth, verticalRate = vertical < 0 ? 58 : 42;
+    const floodDepthBias = state.floodLevel * 4.2;
+    const effectiveTargetDepth = clamp(state.targetDepth + floodDepthBias, 0, 1240);
+    const vertical = effectiveTargetDepth - state.depth, verticalRate = vertical < 0 ? Math.max(16, 58 - state.floodLevel * .38) : 42;
     state.depth += Math.sign(vertical) * Math.min(Math.abs(vertical), verticalRate * dt);
     const depthLoad = Math.max(0, (state.depth - 850) / 400);
     if (state.depth < 12) {
       state.oxygen = Math.min(100, state.oxygen + dt * 5.5);
       if (!state.surfaced) { state.surfaced = true; log('Поверхность достигнута. Забортный воздух поступает в систему.'); }
     } else { state.surfaced = false; state.oxygen -= dt * (.205 + depthLoad * .12); }
-    state.energy = Math.min(100, state.energy + dt * (state.silent ? 2.4 : 1.35) + dt * (hasCrew('engineer') ? .42 : 0) - dt * depthLoad * .34);
+    const engineEfficiency = Math.max(.08,state.rooms.engine.health/100) * (state.rooms.engine.incident ? .55 : 1) * Math.max(.12,1-state.rooms.engine.water/112);
+    state.energy = Math.min(100, state.energy + dt * ((state.silent ? 2.4 : 1.35) + (crewAt('engineer','engine') ? .42 : 0)) * engineEfficiency - dt * depthLoad * .34);
     if (audioNodes) {
       audioNodes.ambient.gain.setTargetAtTime(.012 + depthLoad * .018, audio.currentTime, .4);
       audioNodes.propeller.gain.setTargetAtTime(state.silent ? .003 : .013, audio.currentTime, .3);
@@ -299,7 +536,7 @@
     state.cameraShake = Math.max(0, state.cameraShake - dt * 10);
 
     if (state.pingActive) {
-      const sonarBoost = hasCrew('sonar') ? 1.3 : 1;
+      const sonarBoost = crewAt('sonar','sonar') ? 1.3 : 1;
       state.pingRadius += dt * 760 * sonarBoost;
       entities.forEach(e => {
         const d = Math.hypot(e.x - state.x, e.y - state.y, (e.z - state.depth) * 1.15);
@@ -324,7 +561,7 @@
       if (e.type === 'specimen' && !e.collected && horizontal < 64 && verticalGap < 75) state.nearby = e;
       if (e.type === 'vent' && !e.cooldown && horizontal < 72 && verticalGap < 90) state.nearby = e;
       if (e.type === 'mine' && !e.collected && d < 46) {
-        e.collected = true; damage(18, 'Мина! Пробоина внешнего корпуса.');
+        e.collected = true; damage(18, 'Мина! Пробоина внешнего корпуса.'); triggerIncident('breach');
       }
       if (e.type === 'vent' && horizontal < 75 && verticalGap < 100) {
         state.energy = Math.min(100, state.energy + dt * 7); e.reveal = 2;
@@ -366,9 +603,9 @@
     const zone = state.depth < 20 ? 'ПОВЕРХНОСТЬ' : state.depth < 140 ? 'ПЕРИСКОПНАЯ ГЛУБИНА' : state.depth < 560 ? 'ХОЛОДНЫЙ ШЕЛЬФ' : state.depth < 860 ? 'СУМЕРЕЧНАЯ ЗОНА' : state.depth < 1050 ? 'АБИССАЛЬНАЯ ЗОНА' : 'ЗОНА ДАВЛЕНИЯ';
     ui.zone.textContent = zone;
     const vertical = state.targetDepth - state.depth;
-    ui.ballast.textContent = Math.abs(vertical) < 4 ? 'НЕЙТРАЛЬНО' : vertical > 0 ? 'БАЛЛАСТ +' : 'ПРОДУВКА';
-    const pingCost = hasCrew('sonar') ? 14 : 18, repairCost = hasCrew('engineer') ? 20 : 25;
-    ui.ping.disabled = state.energy < pingCost || state.pingActive; ui.ping.querySelector('small').textContent = `−${pingCost} энергии`;
+    ui.ballast.textContent = state.floodLevel >= 4 ? `ЗАТОПЛЕНИЕ ${Math.round(state.floodLevel)}%` : Math.abs(vertical) < 4 ? 'НЕЙТРАЛЬНО' : vertical > 0 ? 'БАЛЛАСТ +' : 'ПРОДУВКА';
+    const pingCost = crewAt('sonar','sonar') ? 14 : 18, repairCost = crewAt('engineer','engine') ? 20 : 25;
+    ui.ping.disabled = state.rooms.sonar.health <= 0 || state.rooms.sonar.water >= 70 || !!state.rooms.sonar.incident || state.energy < pingCost || state.pingActive; ui.ping.querySelector('small').textContent = state.rooms.sonar.water >= 70 ? 'отсек затоплен' : state.rooms.sonar.health <= 0 ? 'пост отключён' : `−${pingCost} энергии`;
     ui.repair.disabled = state.energy < repairCost || state.hull >= 99; ui.repair.querySelector('small').textContent = `−${repairCost} энергии`;
   }
 
@@ -521,6 +758,12 @@
   }
 
   canvas.addEventListener('pointerdown', e => setCourse(e.clientX, e.clientY));
+  document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
+  document.querySelectorAll('.compartment').forEach(card => {
+    card.addEventListener('click', () => assignCrewToRoom(card.dataset.room));
+    card.querySelector('.room-action').addEventListener('click', event => { event.stopPropagation(); startRoomRepair(card.dataset.room); });
+  });
+  ui.passive.addEventListener('click', togglePassive);
   ui.ping.addEventListener('click', ping); ui.silent.addEventListener('click', toggleSilent); ui.repair.addEventListener('click', repair);
   ui.action.addEventListener('click', interact);
   $('ascendBtn').addEventListener('click', () => changeDepth(-120));
@@ -533,4 +776,3 @@
   const best = Number(localStorage.getItem('depth-best') || 0); if (best) ui.best.textContent = `Лучшее погружение: ${formatTime(best)}`;
   if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 })();
-

@@ -8,7 +8,7 @@
   <title>Глубина</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
   <main id="game" aria-label="Игра Глубина">
@@ -36,6 +36,11 @@
       <div class="mission-buttons"><button id="journalBtn" type="button">ЖУРНАЛ</button><button id="crewBtn" type="button">ЭКИПАЖ <b id="crewCount">0/2</b></button></div>
     </aside>
 
+    <nav id="viewSwitch" class="view-switch" aria-label="Режим отображения">
+      <button class="active" type="button" data-view="sonar">◉ СОНАР</button>
+      <button type="button" data-view="interior">▣ ИНТЕРЬЕР</button>
+    </nav>
+
     <section id="log" class="log hud" aria-live="polite"></section>
 
     <button id="actionBtn" class="context-action" type="button">ИССЛЕДОВАТЬ ОБЪЕКТ</button>
@@ -57,6 +62,54 @@
       <button id="repairBtn" class="control secondary" type="button">
         <span>✚</span><b>РЕМОНТ</b><small>−25 энергии</small>
       </button>
+    </section>
+
+    <section id="interiorView" class="interior-view" aria-label="Интерьер подлодки">
+      <header class="interior-header">
+        <div><small>СОСТОЯНИЕ СУДНА</small><b id="interiorStatus">СИСТЕМЫ В НОРМЕ</b></div>
+        <div class="interior-alert" id="interiorAlert">НЕИСПРАВНОСТЕЙ НЕТ</div>
+      </header>
+
+      <div class="crew-assignment">
+        <small>ЭКИПАЖ · ВЫБЕРИТЕ СПЕЦИАЛИСТА, ЗАТЕМ ОТСЕК</small>
+        <div id="interiorCrew" class="interior-crew"></div>
+      </div>
+
+      <div class="sub-cutaway">
+        <article class="compartment" data-room="sonar">
+          <div class="room-icon">◉</div><small>ОТСЕК 01</small><h3>ГИДРОАКУСТИЧЕСКИЙ ПОСТ</h3>
+          <div class="room-health"><i><em></em></i><span>100%</span></div>
+          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-task">Пассивное наблюдение</div><div class="room-crew"></div><div class="room-incident"></div>
+          <button class="room-action" type="button">УСТРАНИТЬ</button>
+        </article>
+        <article class="compartment" data-room="command">
+          <div class="room-icon">⌖</div><small>ОТСЕК 02</small><h3>КОМАНДНЫЙ ОТСЕК</h3>
+          <div class="room-health"><i><em></em></i><span>100%</span></div>
+          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-task">Управление экспедицией</div><div class="room-crew"></div><div class="room-incident"></div>
+          <button class="room-action" type="button">УСТРАНИТЬ</button>
+        </article>
+        <article class="compartment" data-room="engine">
+          <div class="room-icon">⚙</div><small>ОТСЕК 03</small><h3>МАШИННОЕ ОТДЕЛЕНИЕ</h3>
+          <div class="room-health"><i><em></em></i><span>100%</span></div>
+          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-task">Реактор стабилен</div><div class="room-crew"></div><div class="room-incident"></div>
+          <button class="room-action" type="button">УСТРАНИТЬ</button>
+        </article>
+        <article class="compartment" data-room="lab">
+          <div class="room-icon">⌁</div><small>ОТСЕК 04</small><h3>ЛАБОРАТОРИЯ</h3>
+          <div class="room-health"><i><em></em></i><span>100%</span></div>
+          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
+          <div class="room-task">Нет образцов для анализа</div><div class="room-crew"></div><div class="room-incident"></div>
+          <button class="room-action" type="button">УСТРАНИТЬ</button>
+        </article>
+      </div>
+
+      <section class="passive-console">
+        <div><small>ПАССИВНЫЙ ГИДРОФОН</small><strong id="passiveContact">РЕЖИМ ОЖИДАНИЯ</strong><span id="passiveBearing">Контакты не обнаружены</span></div>
+        <button id="passiveBtn" type="button">ВКЛЮЧИТЬ</button>
+      </section>
     </section>
 
     <div id="intro" class="overlay visible">
@@ -104,7 +157,6 @@
       </section>
     </div>
   </main>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
-
