@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#03121d">
+  <meta name="description" content="Глубина — атмосферная экспедиция на исследовательской подлодке">
+  <title>Глубина</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+  <main id="game" aria-label="Игра Глубина">
+    <canvas id="ocean" aria-label="Экран сонара"></canvas>
+
+    <header class="hud top-hud">
+      <section class="brand">
+        <span class="brand-mark">◉</span>
+        <div><b>ГЛУБИНА</b><small>ЭКСПЕДИЦИЯ «НЕРЕИДА»</small></div>
+      </section>
+      <section class="depth"><small id="zoneName">СУМЕРЕЧНАЯ ЗОНА</small><strong><span id="depthValue">640</span> м</strong></section>
+    </header>
+
+    <section class="status-panel hud" aria-label="Состояние подлодки">
+      <div class="meter oxygen"><label>O₂ <span id="oxygenText">100%</span></label><i><em id="oxygenBar"></em></i></div>
+      <div class="meter energy"><label>ЭНЕРГИЯ <span id="energyText">100%</span></label><i><em id="energyBar"></em></i></div>
+      <div class="meter hull"><label>КОРПУС <span id="hullText">100%</span></label><i><em id="hullBar"></em></i></div>
+    </section>
+
+    <aside class="mission hud">
+      <small>ЗАДАЧА</small>
+      <b id="missionTitle">Найти чёрные ящики</b>
+      <span><strong id="fragments">0</strong> / 3 фрагмента</span>
+      <span class="samples"><strong id="samples">0</strong> образцов</span>
+      <div class="mission-buttons"><button id="journalBtn" type="button">ЖУРНАЛ</button><button id="crewBtn" type="button">ЭКИПАЖ <b id="crewCount">0/2</b></button></div>
+    </aside>
+
+    <section id="log" class="log hud" aria-live="polite"></section>
+
+    <button id="actionBtn" class="context-action" type="button">ИССЛЕДОВАТЬ ОБЪЕКТ</button>
+
+    <section class="depth-controls" aria-label="Управление глубиной">
+      <button id="ascendBtn" type="button" aria-label="Подняться">▲<small>ВЫШЕ</small></button>
+      <div><span id="targetDepth">640</span><small id="ballastMode">НЕЙТРАЛЬНО</small></div>
+      <button id="descendBtn" type="button" aria-label="Погрузиться">▼<small>ГЛУБЖЕ</small></button>
+      <button id="surfaceBtn" class="surface-btn" type="button" aria-label="Всплыть на поверхность">▲▲<small>ВСПЛЫТЬ</small></button>
+    </section>
+
+    <section class="controls">
+      <button id="silentBtn" class="control secondary" type="button">
+        <span>◌</span><b>ТИХИЙ ХОД</b><small>маскировка</small>
+      </button>
+      <button id="pingBtn" class="control ping" type="button">
+        <span>◉</span><b>ИМПУЛЬС</b><small>−18 энергии</small>
+      </button>
+      <button id="repairBtn" class="control secondary" type="button">
+        <span>✚</span><b>РЕМОНТ</b><small>−25 энергии</small>
+      </button>
+    </section>
+
+    <div id="intro" class="overlay visible">
+      <section class="dialog">
+        <div class="eyebrow">СЕКТОР 07 · 02:14</div>
+        <h1>ГЛУБИНА</h1>
+        <p>Исследовательская подлодка «Нереида» получила последний сигнал экспедиции, пропавшей под ледяным разломом.</p>
+        <div class="briefing">
+          <span>Коснитесь воды, чтобы задать курс.</span>
+          <span>Импульс сонара обнаруживает объекты.</span>
+          <span>Тихий ход помогает скрыться от контактов.</span>
+          <span>Меняйте глубину и исследуйте объекты вручную.</span>
+        </div>
+        <button id="startBtn" type="button">НАЧАТЬ ПОГРУЖЕНИЕ</button>
+        <button id="openCrewIntroBtn" class="ghost-button" type="button">СФОРМИРОВАТЬ ЭКИПАЖ</button>
+        <small class="best" id="bestRun"></small>
+      </section>
+    </div>
+
+    <div id="endScreen" class="overlay">
+      <section class="dialog">
+        <div class="eyebrow" id="endEyebrow">СВЯЗЬ ПОТЕРЯНА</div>
+        <h2 id="endTitle">ЭКСПЕДИЦИЯ ЗАВЕРШЕНА</h2>
+        <p id="endText"></p>
+        <button id="restartBtn" type="button">НОВАЯ ЭКСПЕДИЦИЯ</button>
+      </section>
+    </div>
+
+    <div id="journal" class="overlay journal-overlay">
+      <section class="dialog journal-dialog">
+        <div class="eyebrow">БОРТОВОЙ АРХИВ</div>
+        <h2>ЖУРНАЛ «НЕРЕИДЫ»</h2>
+        <div id="journalEntries" class="journal-entries"></div>
+        <button id="closeJournalBtn" type="button">ВЕРНУТЬСЯ К ПОГРУЖЕНИЮ</button>
+      </section>
+    </div>
+
+    <div id="crewScreen" class="overlay crew-overlay">
+      <section class="dialog crew-dialog">
+        <div class="eyebrow">ЦЕНТР ПОДВОДНЫХ ИССЛЕДОВАНИЙ</div>
+        <h2>ЭКИПАЖ «НЕРЕИДЫ»</h2>
+        <div class="crew-balance">БЮДЖЕТ: <strong><span id="credits">1000</span> CR</strong> · МЕСТА: <strong><span id="crewSlots">0</span>/2</strong></div>
+        <div id="crewCards" class="crew-cards"></div>
+        <button id="closeCrewBtn" type="button">ГОТОВО</button>
+      </section>
+    </div>
+  </main>
+  <script src="app.js?v=6"></script>
+</body>
+</html>
+
