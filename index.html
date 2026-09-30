@@ -8,7 +8,7 @@
   <title>Глубина</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <main id="game" aria-label="Игра Глубина">
@@ -31,9 +31,10 @@
     <aside class="mission hud">
       <small>ЗАДАЧА</small>
       <b id="missionTitle">Найти чёрные ящики</b>
-      <span><strong id="fragments">0</strong> / 3 фрагмента</span>
+      <span><strong id="fragments">0</strong><span id="missionProgressLabel"> / 3 фрагмента</span></span>
       <span class="samples"><strong id="samples">0</strong> образцов</span>
-      <div class="mission-buttons"><button id="journalBtn" type="button">ЖУРНАЛ</button><button id="crewBtn" type="button">ЭКИПАЖ <b id="crewCount">0/2</b></button></div>
+      <span class="supplies" id="supplyStatus">РЕМ 2 · O₂ 2 · АКБ 1</span>
+      <div class="mission-buttons"><button id="routeBtn" type="button">КАРТА</button><button id="journalBtn" type="button">ЖУРНАЛ</button><button id="crewBtn" type="button">ЭКИПАЖ <b id="crewCount">0/2</b></button></div>
     </aside>
 
     <section id="interiorView" class="interior-view" aria-label="Интерьер подлодки">
@@ -47,39 +48,58 @@
         <div id="interiorCrew" class="interior-crew"></div>
       </div>
 
-      <div class="sub-cutaway">
-        <article class="compartment" data-room="sonar">
-          <div class="room-icon">◉</div><small>ОТСЕК 01</small><h3>ГИДРОАКУСТИЧЕСКИЙ ПОСТ</h3>
-          <div class="room-health"><i><em></em></i><span>100%</span></div>
-          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
-          <div class="room-temperature"><i><em></em></i><span>18°C</span></div>
-          <div class="room-task">Пассивное наблюдение</div><div class="room-crew"></div><div class="room-incident"></div>
-          <button class="room-action" type="button">УСТРАНИТЬ</button>
-        </article>
-        <article class="compartment" data-room="command">
-          <div class="room-icon">⌖</div><small>ОТСЕК 02</small><h3>КОМАНДНЫЙ ОТСЕК</h3>
-          <div class="room-health"><i><em></em></i><span>100%</span></div>
-          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
-          <div class="room-temperature"><i><em></em></i><span>20°C</span></div>
-          <div class="room-task">Управление экспедицией</div><div class="room-crew"></div><div class="room-incident"></div>
-          <button class="room-action" type="button">УСТРАНИТЬ</button>
-        </article>
-        <article class="compartment" data-room="engine">
-          <div class="room-icon">⚙</div><small>ОТСЕК 03</small><h3>МАШИННОЕ ОТДЕЛЕНИЕ</h3>
-          <div class="room-health"><i><em></em></i><span>100%</span></div>
-          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
-          <div class="room-temperature"><i><em></em></i><span>32°C</span></div>
-          <div class="room-task">Реактор стабилен</div><div class="room-crew"></div><div class="room-incident"></div>
-          <button class="room-action" type="button">УСТРАНИТЬ</button>
-        </article>
-        <article class="compartment" data-room="lab">
-          <div class="room-icon">⌁</div><small>ОТСЕК 04</small><h3>ЛАБОРАТОРИЯ</h3>
-          <div class="room-health"><i><em></em></i><span>100%</span></div>
-          <div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div>
-          <div class="room-temperature"><i><em></em></i><span>19°C</span></div>
-          <div class="room-task">Нет образцов для анализа</div><div class="room-crew"></div><div class="room-incident"></div>
-          <button class="room-action" type="button">УСТРАНИТЬ</button>
-        </article>
+      <div class="cutaway-scroll" aria-label="Боковой разрез подлодки">
+        <div class="sub-cutaway">
+          <div class="hull-mark">НЕРЕИДА · НИО-07</div>
+          <article class="compartment" data-room="sonar">
+            <div class="room-scene sonar-scene" aria-hidden="true">
+              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
+              <div class="sonar-bank"><i></i><i></i><i></i><span></span></div><div class="operator-chair"></div><div class="cable-coil"></div>
+              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
+            </div>
+            <div class="room-readout"><div class="room-icon">◉</div><small>ОТСЕК 01</small><h3>ГИДРОАКУСТИЧЕСКИЙ ПОСТ</h3>
+              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>18°C</span></div>
+              <div class="room-task">Пассивное наблюдение</div><div class="room-crew"></div><div class="room-incident"></div>
+            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+          </article>
+          <article class="compartment" data-room="command">
+            <div class="room-scene command-scene" aria-hidden="true">
+              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
+              <div class="helm-wheel"></div><div class="chart-table"><i></i></div><div class="command-panels"><i></i><i></i><i></i></div>
+              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
+            </div>
+            <div class="room-readout"><div class="room-icon">⌖</div><small>ОТСЕК 02</small><h3>КОМАНДНЫЙ ОТСЕК</h3>
+              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>20°C</span></div>
+              <div class="room-task">Управление экспедицией</div><div class="room-crew"></div><div class="room-incident"></div>
+            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+          </article>
+          <article class="compartment" data-room="engine">
+            <div class="room-scene engine-scene" aria-hidden="true">
+              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
+              <div class="reactor-core"><i></i><span></span></div><div class="engine-pipes"><i></i><i></i><i></i></div><div class="pressure-bank"></div>
+              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
+            </div>
+            <div class="room-readout"><div class="room-icon">⚙</div><small>ОТСЕК 03</small><h3>МАШИННОЕ ОТДЕЛЕНИЕ</h3>
+              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>32°C</span></div>
+              <div class="room-task">Реактор стабилен</div><div class="room-crew"></div><div class="room-incident"></div>
+            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+          </article>
+          <article class="compartment" data-room="lab">
+            <div class="room-scene lab-scene" aria-hidden="true">
+              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
+              <div class="sample-tank"><i></i></div><div class="lab-desk"><i></i><i></i></div><div class="storage-lockers"></div>
+              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
+            </div>
+            <div class="room-readout"><div class="room-icon">⌁</div><small>ОТСЕК 04</small><h3>ЛАБОРАТОРИЯ</h3>
+              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>19°C</span></div>
+              <div class="room-task">Нет образцов для анализа</div><div class="room-crew"></div><div class="room-incident"></div>
+            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+          </article>
+          <div id="transitLayer" class="transit-layer" aria-hidden="true"></div>
+          <button class="cutaway-door door-one" type="button" data-bulkhead="sonar-command" aria-label="Переборка между отсеками 01 и 02"><i></i><small>ОТКРЫТА</small></button>
+          <button class="cutaway-door door-two" type="button" data-bulkhead="command-engine" aria-label="Переборка между отсеками 02 и 03"><i></i><small>ОТКРЫТА</small></button>
+          <button class="cutaway-door door-three" type="button" data-bulkhead="engine-lab" aria-label="Переборка между отсеками 03 и 04"><i></i><small>ОТКРЫТА</small></button>
+        </div>
       </div>
 
       <section class="damage-control" aria-label="Пост борьбы за живучесть">
@@ -141,6 +161,7 @@
           <span>Меняйте глубину и исследуйте объекты вручную.</span>
         </div>
         <button id="startBtn" type="button">НАЧАТЬ ПОГРУЖЕНИЕ</button>
+        <button id="openExpeditionBtn" class="ghost-button" type="button">КАРТА ПОХОДА И СНАРЯЖЕНИЕ</button>
         <button id="openCrewIntroBtn" class="ghost-button" type="button">СФОРМИРОВАТЬ ЭКИПАЖ</button>
         <small class="best" id="bestRun"></small>
       </section>
@@ -173,7 +194,28 @@
         <button id="closeCrewBtn" type="button">ГОТОВО</button>
       </section>
     </div>
+
+    <div id="expeditionScreen" class="overlay expedition-overlay">
+      <section class="dialog expedition-dialog">
+        <header class="expedition-title"><div><div class="eyebrow">ЦЕНТР ПОДВОДНЫХ ИССЛЕДОВАНИЙ</div><h2>ПЛАН ПОХОДА</h2></div><strong><span id="expeditionCredits">0</span> CR</strong></header>
+        <div class="expedition-map" aria-label="Карта районов экспедиции">
+          <i class="route-line line-a"></i><i class="route-line line-b"></i><i class="route-line line-c"></i><i class="route-line line-d"></i><i class="route-line line-e"></i>
+          <button class="map-node base active" type="button" data-map-node="base"><b>БАЗА</b><small>НИО-07</small></button>
+          <button class="map-node shelf" type="button" data-map-node="salvage"><b>ШЕЛЬФ</b><small>«ОРФЕЙ»</small></button>
+          <button class="map-node rift" type="button" data-map-node="research"><b>РАЗЛОМ</b><small>БИОСИГНАЛ</small></button>
+          <button class="map-node station" type="button" data-map-node="rescue"><b>СТАНЦИЯ</b><small>SOS</small></button>
+          <span class="map-node dead"><b>МЁРТВАЯ ЗОНА</b><small>980 М</small></span>
+          <span class="map-node abyss"><b>АБИССАЛЬ</b><small>ЗАКРЫТО</small></span>
+        </div>
+        <div class="expedition-grid">
+          <section class="contract-panel"><small>КОНТРАКТ</small><div id="contractCards" class="contract-cards"></div></section>
+          <section class="loadout-panel"><small>СНАРЯЖЕНИЕ · 6 МЕСТ</small><div id="loadoutControls" class="loadout-controls"></div><div id="cargoWarning" class="cargo-warning"></div></section>
+          <section class="upgrade-panel"><small>МОДЕРНИЗАЦИЯ «НЕРЕИДЫ»</small><div id="upgradeCards" class="upgrade-cards"></div></section>
+        </div>
+        <button id="closeExpeditionBtn" type="button">УТВЕРДИТЬ ПЛАН ПОХОДА</button>
+      </section>
+    </div>
   </main>
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

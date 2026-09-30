@@ -8,7 +8,7 @@
   const $ = (id) => document.getElementById(id);
   const ui = {
     depth: $('depthValue'), oxygen: $('oxygenText'), energy: $('energyText'), hull: $('hullText'),
-    oxygenBar: $('oxygenBar'), energyBar: $('energyBar'), hullBar: $('hullBar'), fragments: $('fragments'),
+    oxygenBar: $('oxygenBar'), energyBar: $('energyBar'), hullBar: $('hullBar'), fragments: $('fragments'), progressLabel: $('missionProgressLabel'),
     mission: $('missionTitle'), log: $('log'), ping: $('pingBtn'), silent: $('silentBtn'), cooling: $('coolingBtn'), repair: $('repairBtn'),
     samples: $('samples'), zone: $('zoneName'), targetDepth: $('targetDepth'), action: $('actionBtn'),
     ballast: $('ballastMode'), crewCount: $('crewCount'), credits: $('credits'), crewSlots: $('crewSlots'), crewCards: $('crewCards'),
@@ -16,7 +16,8 @@
     passive: $('passiveBtn'), passiveContact: $('passiveContact'), passiveBearing: $('passiveBearing'), thermal: $('thermalSummary'),
     noise: $('noiseReadout'), trim: $('trimReadout'), powerBudget: $('powerBudget'), emergency: $('emergencyObjective'),
     intro: $('intro'), end: $('endScreen'), journal: $('journal'), crewScreen: $('crewScreen'), journalEntries: $('journalEntries'),
-    endEyebrow: $('endEyebrow'), endTitle: $('endTitle'), endText: $('endText'), best: $('bestRun')
+    endEyebrow: $('endEyebrow'), endTitle: $('endTitle'), endText: $('endText'), best: $('bestRun'), supplyStatus: $('supplyStatus'),
+    expeditionScreen: $('expeditionScreen'), expeditionCredits: $('expeditionCredits'), contractCards: $('contractCards'), loadoutControls: $('loadoutControls'), upgradeCards: $('upgradeCards'), cargoWarning: $('cargoWarning')
   };
 
   const WORLD = 3600;
@@ -39,6 +40,16 @@
     { id: 'engineer', icon: '⚙', name: 'Илья Корин', role: 'БОРТИНЖЕНЕР', cost: 420, skill: 'Усиленный ремонт и ускоренное восстановление энергии.' },
     { id: 'biologist', icon: '⌁', name: 'Ада Лин', role: 'КСЕНОБИОЛОГ', cost: 390, skill: 'Биообразцы дают больше кислорода и исследовательских кредитов.' }
   ];
+  const contracts = {
+    salvage: { icon:'▣', name:'ЭХО «ОРФЕЯ»', region:'ЛЕДЯНОЙ ШЕЛЬФ', briefing:'Найти три фрагмента самописца и доставить их к маяку.', reward:350, danger:2 },
+    research: { icon:'⌁', name:'ЖИВОЙ РАЗЛОМ', region:'ТЕРМАЛЬНАЯ ДОЛИНА', briefing:'Собрать три живых образца в зоне аномальной активности.', reward:420, danger:3 },
+    rescue: { icon:'✚', name:'ПОСЛЕДНИЙ СИГНАЛ', region:'СТАНЦИЯ «КЕЛЬВИН»', briefing:'Найти аварийный модуль станции и эвакуировать выживших.', reward:500, danger:4 }
+  };
+  const upgradeDefs = {
+    hull: { name:'УСИЛЕННЫЙ КОРПУС', text:'Получаемый урон −12% за уровень.', costs:[350,620] },
+    quiet: { name:'ТИХИЙ ПРИВОД', text:'Шум ходовой −15% за уровень.', costs:[320,580] },
+    pumps: { name:'ПОМПЫ МК-II', text:'Скорость откачки +18% за уровень.', costs:[300,540] }
+  };
   let profile = loadProfile();
   let dpr = 1, w = 0, h = 0, last = 0, running = false, audio = null, audioNodes = null, nextCreak = 0;
   let state, entities, particles, ripples, bubbles, messages, startedAt;
@@ -55,10 +66,17 @@
         credits: Number(saved.credits) || 0,
         crew: saved.crew.filter(id => crewCatalog.some(c => c.id === id)).slice(0, 2),
         assignments: saved.assignments && typeof saved.assignments === 'object' ? saved.assignments : {},
-        researched: Number(saved.researched) || 0
+        researched: Number(saved.researched) || 0,
+        expedition: contracts[saved.expedition] ? saved.expedition : 'salvage',
+        loadout: {
+          kits: clamp(saved.loadout?.kits == null ? 2 : Number(saved.loadout.kits),0,4),
+          oxygen: clamp(saved.loadout?.oxygen == null ? 2 : Number(saved.loadout.oxygen),0,4),
+          batteries: clamp(saved.loadout?.batteries == null ? 1 : Number(saved.loadout.batteries),0,4)
+        },
+        upgrades: { hull: clamp(Number(saved.upgrades?.hull)||0,0,2), quiet: clamp(Number(saved.upgrades?.quiet)||0,0,2), pumps: clamp(Number(saved.upgrades?.pumps)||0,0,2) }
       };
     } catch (_) {}
-    return { credits: 1000, crew: [], assignments: {}, researched: 0 };
+    return { credits: 1000, crew: [], assignments: {}, researched: 0, expedition:'salvage', loadout:{kits:2,oxygen:2,batteries:1}, upgrades:{hull:0,quiet:0,pumps:0} };
   }
 
   function saveProfile() { localStorage.setItem('depth-profile', JSON.stringify(profile)); }
@@ -76,6 +94,34 @@
     }).join('');
     ui.crewCards.querySelectorAll('[data-crew]').forEach(button => button.addEventListener('click', () => toggleCrew(button.dataset.crew)));
   }
+
+  function renderExpedition(){
+    const selected=profile.expedition,total=Object.values(profile.loadout).reduce((sum,value)=>sum+value,0);
+    ui.expeditionCredits.textContent=profile.credits;
+    ui.contractCards.innerHTML=Object.entries(contracts).map(([id,item])=>`<button type="button" data-contract="${id}" class="contract-card${selected===id?' selected':''}"><span>${item.icon}</span><div><b>${item.name}</b><small>${item.region}</small><p>${item.briefing}</p><em>ОПАСНОСТЬ ${'◆'.repeat(item.danger)} · ${item.reward} CR</em></div></button>`).join('');
+    const labels={kits:['РЕМКОМПЛЕКТЫ','Корпус и аварии'],oxygen:['БАЛЛОНЫ O₂','Автоподача при 18%'],batteries:['АВАРИЙНЫЕ АКБ','Автозаряд при 12%']};
+    ui.loadoutControls.innerHTML=Object.entries(labels).map(([id,label])=>`<div class="loadout-row"><div><b>${label[0]}</b><small>${label[1]}</small></div><button type="button" data-loadout="${id}" data-delta="-1">−</button><strong>${profile.loadout[id]}</strong><button type="button" data-loadout="${id}" data-delta="1">+</button></div>`).join('');
+    ui.cargoWarning.textContent=`ЗАНЯТО ${total} / 6`;ui.cargoWarning.classList.toggle('full',total>=6);
+    ui.upgradeCards.innerHTML=Object.entries(upgradeDefs).map(([id,item])=>{const level=profile.upgrades[id],cost=item.costs[level];return `<button type="button" data-upgrade="${id}"${level>=2||profile.credits<cost?' disabled':''}><b>${item.name}</b><span>УР. ${level}/2</span><small>${item.text}</small><em>${level>=2?'МАКСИМУМ':`${cost} CR`}</em></button>`}).join('');
+    document.querySelectorAll('[data-map-node]').forEach(node=>node.classList.toggle('active',node.dataset.mapNode===selected||node.dataset.mapNode==='base'));
+    document.querySelectorAll('[data-map-node]').forEach(node=>node.onclick=()=>{if(running||!contracts[node.dataset.mapNode])return;profile.expedition=node.dataset.mapNode;saveProfile();renderExpedition();});
+    ui.contractCards.querySelectorAll('[data-contract]').forEach(button=>button.addEventListener('click',()=>{if(running)return;profile.expedition=button.dataset.contract;saveProfile();renderExpedition();}));
+    ui.loadoutControls.querySelectorAll('[data-loadout]').forEach(button=>button.addEventListener('click',()=>adjustLoadout(button.dataset.loadout,Number(button.dataset.delta))));
+    ui.upgradeCards.querySelectorAll('[data-upgrade]').forEach(button=>button.addEventListener('click',()=>buyUpgrade(button.dataset.upgrade)));
+  }
+
+  function adjustLoadout(id,delta){
+    if(running)return;const total=Object.values(profile.loadout).reduce((sum,value)=>sum+value,0),next=clamp(profile.loadout[id]+delta,0,4);
+    if(delta>0&&total>=6)return;profile.loadout[id]=next;saveProfile();renderExpedition();
+  }
+
+  function buyUpgrade(id){
+    if(running)return;const level=profile.upgrades[id],def=upgradeDefs[id],cost=def?.costs[level];
+    if(!def||level>=2||profile.credits<cost)return;profile.credits-=cost;profile.upgrades[id]++;saveProfile();renderExpedition();renderCrew();tone(620,.24,.025,'triangle');
+  }
+
+  function openExpedition(){renderExpedition();ui.expeditionScreen.classList.add('visible');}
+  function closeExpedition(){ui.expeditionScreen.classList.remove('visible');last=performance.now();}
 
   function toggleCrew(id) {
     const person = crewCatalog.find(c => c.id === id); if (!person) return;
@@ -106,6 +152,7 @@
 
   function reset() {
     const rand = seededRandom(47821);
+    const contract=contracts[profile.expedition]||contracts.salvage;
     state = {
       x: WORLD / 2, y: WORLD / 2, targetX: WORLD / 2, targetY: WORLD / 2,
       angle: -Math.PI / 2, oxygen: 100, energy: 100, hull: 100, fragments: 0,
@@ -116,8 +163,10 @@
       power: { propulsion: 35, pumps: 25, life: 25, sonar: 15 }, bulkheads: { 'sonar-command': false, 'command-engine': false, 'engine-lab': false },
       noise: 12, trim: 0, emergencyPhase: 0, emergencyAt: 0, emergencyDeadline: 0, emergencyRoom: null, emergencyRewarded: false,
       crewVitals: Object.fromEntries(profile.crew.map(id => [id, { health: 100, fatigue: 0, stress: 5, bodyTemp: 36.6 }])),
+      contractId: profile.expedition, contract, repairKits: profile.loadout.kits, oxygenCylinders: profile.loadout.oxygen, batteries: profile.loadout.batteries, rescued:false,
+      damageReduction:1-profile.upgrades.hull*.12, quietFactor:1-profile.upgrades.quiet*.15, pumpFactor:1+profile.upgrades.pumps*.18,
       journal: [
-        { title: 'ПРИКАЗ ЭКСПЕДИЦИИ', text: 'Найти три фрагмента самописца экспедиции «Орфей» и вернуться к навигационному маяку.', unlocked: true },
+        { title: 'ПРИКАЗ ЭКСПЕДИЦИИ', text: contract.briefing, unlocked: true },
         { title: 'ЗАПИСЬ 01', text: 'Данные ещё не восстановлены.', unlocked: false },
         { title: 'ЗАПИСЬ 02', text: 'Данные ещё не восстановлены.', unlocked: false },
         { title: 'ЗАПИСЬ 03', text: 'Данные ещё не восстановлены.', unlocked: false }
@@ -138,7 +187,9 @@
     [[1120,1700],[2050,820],[2320,2770],[820,2240],[3000,1450]].forEach((p,i) => entities.push(makeEntity('specimen',p[0],p[1],i)));
     for (let i = 0; i < 24; i++) entities.push(makeEntity('flora', 250 + rand() * 3100, 250 + rand() * 3100, i));
     entities.push(makeEntity('leviathan', 2650, 1980, 0));
+    entities.push(makeEntity('distress', 620, 3020, 0));
     entities.push(makeEntity('beacon', WORLD / 2, WORLD / 2 + 90, 0));
+    ui.mission.textContent=contract.name;
     updateHud();
     renderJournal();
     renderCrew();
@@ -152,7 +203,7 @@
   }
 
   function makeEntity(type, x, y, index) {
-    const bands = { wreck: [520,760,980], mine: [460,620,820,980], vent: [920], specimen: [430,610,790,930,1060], flora: [500,700,880,1010], leviathan: [780], beacon: [0] };
+    const bands = { wreck: [520,760,980], mine: [460,620,820,980], vent: [920], specimen: [430,610,790,930,1060], flora: [500,700,880,1010], leviathan: [780], distress:[740], beacon: [0] };
     const choices = bands[type] || [640], z = choices[index % choices.length];
     return { type, x, y, z, index, found: type === 'beacon', collected: false, reveal: type === 'beacon' ? 999 : 0, lastEcho: -1, phase: index * 1.7, vx: 0, vy: 0 };
   }
@@ -175,6 +226,14 @@
     ui.interiorStatus.textContent = incidents.length ? 'АВАРИЙНЫЙ РЕЖИМ' : flooded.length ? 'БОРЬБА ЗА ЖИВУЧЕСТЬ' : 'СИСТЕМЫ В НОРМЕ';
     ui.interiorAlert.textContent = incidents.length || flooded.length ? `АВАРИЙ: ${incidents.length} · ВОДА: ${Math.round(floodLevel)}%` : 'НЕИСПРАВНОСТЕЙ НЕТ';
     if (ui.thermal) ui.thermal.textContent = `СНАРУЖИ ${Math.round(state.outsideTemperature)}°C`;
+    const cutaway=document.querySelector('.sub-cutaway');
+    if(cutaway){cutaway.style.setProperty('--trim-angle',`${clamp(state.trim*.42,-5,5)}deg`);cutaway.classList.toggle('heavy-trim',Math.abs(state.trim)>6);}
+    const transitLayer=$('transitLayer');
+    if(transitLayer)transitLayer.innerHTML=Object.entries(state.transit).map(([id,trip])=>{
+      const person=crewCatalog.find(member=>member.id===id), progress=clamp(1-(trip.arriveAt-performance.now())/3000,0,1);
+      const from=12.5+roomIndex(trip.from)*25,to=12.5+roomIndex(trip.target)*25,left=from+(to-from)*progress;
+      return `<span class="moving-person crew-${id}" style="left:${left}%"><i></i><b>${person.name.split(' ')[0]}</b></span>`;
+    }).join('');
     ui.interiorCrew.innerHTML = state.crew.length ? state.crew.map(id => {
       const person = crewCatalog.find(member => member.id === id), room = Object.values(state.rooms).find(item => item.crew.includes(id));
       const moving = state.transit[id], vitals = state.crewVitals[id] || {health:100,fatigue:0,stress:0}, place = moving ? `ПЕРЕХОД: ${roomDefs[moving.target].name}` : room ? roomDefs[room.id].name : 'НЕ НАЗНАЧЕН';
@@ -191,7 +250,9 @@
       card.classList.toggle('power-fault', room.incident === 'short' || room.temperature > 64);
       card.classList.toggle('blackout', health < 18 || room.water >= 88 || (room.incident === 'short' && state.energy < 35));
       card.classList.toggle('assignment-target', !!state.selectedCrew && !state.transit[state.selectedCrew]);
+      Object.keys(incidentDefs).forEach(type=>card.classList.toggle(`incident-${type}`,room.incident===type));
       card.style.setProperty('--water-level', `${Math.min(100,room.water)}%`);
+      card.style.setProperty('--water-tilt', `${clamp(-state.trim*.42,-5,5)}deg`);
       card.querySelector('.room-health em').style.width = `${health}%`;
       card.querySelector('.room-health span').textContent = `${Math.round(health)}%`;
       card.querySelector('.room-water em').style.width = `${Math.min(100,room.water)}%`;
@@ -199,8 +260,9 @@
       card.querySelector('.room-temperature em').style.width = `${clamp((room.temperature + 10) / 85 * 100, 0, 100)}%`;
       card.querySelector('.room-temperature span').textContent = `${Math.round(room.temperature)}°C`;
       card.querySelector('.room-task').textContent = room.task;
-      card.querySelector('.room-crew').innerHTML = room.crew.map(id => {
-        const person = crewCatalog.find(member => member.id === id); return `<span class="room-person" title="${person.name}">${person.icon}</span>`;
+      card.querySelector('.room-crew').innerHTML = room.crew.map((id,index) => {
+        const person = crewCatalog.find(member => member.id === id), vitals=state.crewVitals[id]||{stress:0};
+        return `<span class="room-person crew-${id}${vitals.stress>70?' panicked':''}" title="${person.name}" style="--crew-order:${index}"><i></i><b>${person.name.split(' ')[0]}</b></span>`;
       }).join('');
       card.querySelector('.room-incident').textContent = room.incident ? incidentDefs[room.incident].name : '';
       const action = card.querySelector('.room-action');
@@ -326,7 +388,7 @@
       ui.passiveBearing.textContent = 'Контакты не обнаружены'; return;
     }
     const range = (crewAt('sonar','sonar') ? 1150 : 720) * roomEfficiency(state.rooms.sonar) * clamp(state.power.sonar/15,.35,1.8);
-    const candidates = entities.filter(e => !e.collected && ['mine','wreck','leviathan','specimen'].includes(e.type))
+    const candidates = entities.filter(e => !e.collected && ['mine','wreck','leviathan','specimen','distress'].includes(e.type) && (e.type!=='distress'||state.contractId==='rescue'))
       .map(e => ({ e, d: Math.hypot(e.x-state.x,e.y-state.y,(e.z-state.depth)*.75) })).filter(item => item.d < range).sort((a,b) => a.d-b.d);
     if (!candidates.length) { ui.passiveContact.textContent = 'ТОЛЬКО ФОНОВЫЙ ШУМ'; ui.passiveBearing.textContent = 'Контакты вне диапазона'; return; }
     const {e,d} = candidates[0], angle = Math.atan2(e.y-state.y,e.x-state.x), relative = angleDiff(angle,state.angle)*180/Math.PI;
@@ -425,7 +487,7 @@
     tone(68, .5, .018, 'sine'); sonarPulse(0, .1); sonarPulse(.62, .026); sonarPulse(1.25, .009);
   }
   function sonarReturn(type) {
-    const frequencies = { wreck: 780, mine: 1680, vent: 520, specimen: 1120, leviathan: 260 };
+    const frequencies = { wreck: 780, mine: 1680, vent: 520, specimen: 1120, leviathan: 260, distress:920 };
     const gains = { wreck: .018, mine: .012, vent: .009, specimen: .01, leviathan: .025 };
     if (frequencies[type]) tone(frequencies[type], type === 'leviathan' ? .9 : .38, gains[type], type === 'mine' ? 'triangle' : 'sine');
   }
@@ -436,7 +498,7 @@
     initAudio(); reset(); running = true; startedAt = performance.now(); last = performance.now();
     state.nextIncidentAt = performance.now() + (65 + Math.random() * 12) * 1000;
     state.emergencyAt = performance.now() + 32000;
-    ui.intro.classList.remove('visible'); ui.end.classList.remove('visible'); ui.journal.classList.remove('visible'); ui.crewScreen.classList.remove('visible');
+    ui.intro.classList.remove('visible'); ui.end.classList.remove('visible'); ui.journal.classList.remove('visible'); ui.crewScreen.classList.remove('visible');ui.expeditionScreen.classList.remove('visible');
     log('Получен слабый сигнал. Используйте сонар для поиска.');
     requestAnimationFrame(loop);
   }
@@ -476,11 +538,11 @@
     const tx=(state.targetX-state.x)/range*radius,ty=(state.targetY-state.y)/range*radius;
     if(Math.hypot(tx,ty)<=radius*1.2){miniCtx.strokeStyle='#ffca63';miniCtx.beginPath();miniCtx.arc(tx,ty,4,0,7);miniCtx.moveTo(tx-7,ty);miniCtx.lineTo(tx+7,ty);miniCtx.moveTo(tx,ty-7);miniCtx.lineTo(tx,ty+7);miniCtx.stroke();}
     entities.forEach(entity=>{
-      if(entity.collected)return; const dx=(entity.x-state.x)/range*radius,dy=(entity.y-state.y)/range*radius;
+      if(entity.collected||(entity.type==='distress'&&state.contractId!=='rescue'))return; const dx=(entity.x-state.x)/range*radius,dy=(entity.y-state.y)/range*radius;
       if(Math.hypot(dx,dy)>radius)return;
       const passiveVisible=state.passiveOn&&Math.hypot(entity.x-state.x,entity.y-state.y)<(crewAt('sonar','sonar')?1150:720)*roomEfficiency(state.rooms.sonar);
       if(!entity.found&&entity.reveal<=0&&!passiveVisible&&entity.type!=='beacon')return;
-      const colors={mine:'#ff6680',wreck:'#ffca63',specimen:'#bc83ff',vent:'#75efad',leviathan:'#ff6680',beacon:'#56e9ff'};
+      const colors={mine:'#ff6680',wreck:'#ffca63',specimen:'#bc83ff',vent:'#75efad',leviathan:'#ff6680',distress:'#ffdf78',beacon:'#56e9ff'};
       miniCtx.fillStyle=colors[entity.type]||'#7ba9b2';miniCtx.globalAlpha=(entity.reveal>0||entity.found) ? .9 : .45;miniCtx.beginPath();miniCtx.arc(dx,dy,entity.type==='leviathan'?4:2.4,0,7);miniCtx.fill();miniCtx.globalAlpha=1;
     });
     if(state.pingActive){miniCtx.strokeStyle='rgba(86,233,255,.8)';miniCtx.lineWidth=2;miniCtx.beginPath();miniCtx.arc(0,0,Math.min(radius,state.pingRadius/range*radius),0,7);miniCtx.stroke();}
@@ -510,9 +572,10 @@
 
   function repair() {
     const cost = crewAt('engineer','engine') ? 20 : 25, amount = crewAt('engineer','engine') ? 36 : 24;
-    if (!running || state.energy < cost || state.hull >= 99) return;
-    state.energy -= cost; state.hull = Math.min(100, state.hull + amount); tone(320, .35, .035, 'triangle');
-    log('Ремонтные дроны восстановили часть корпуса.');
+    if (!running || (state.repairKits<=0&&state.energy < cost) || state.hull >= 99) return;
+    if(state.repairKits>0){state.repairKits--;state.hull=Math.min(100,state.hull+amount+18);log('Израсходован ремонтный комплект. Повреждение корпуса устранено.');}
+    else {state.energy -= cost;state.hull=Math.min(100,state.hull+amount);log('Ремонтные дроны восстановили часть корпуса.');}
+    tone(320, .35, .035, 'triangle');
   }
 
   function changeDepth(amount) {
@@ -539,14 +602,15 @@
       ];
       state.journal[state.fragments] = { title: `ЗАПИСЬ 0${state.fragments}`, text: stories[state.fragments - 1], unlocked: true };
       renderJournal(); log(`Самописец расшифрован: ${state.fragments}/3. Запись добавлена в журнал.`);
-      if (state.fragments === 3) {
-        state.missionComplete = true; ui.mission.textContent = 'Маяк и всплытие';
-        entities.find(x => x.type === 'beacon').reveal = 999;
-        log('В данных указано: объект следует за «Нереидой». Вернитесь к маяку и всплывите!', true);
-      }
+      if (state.contractId==='salvage'&&state.fragments === 3) completeContract('В данных указано: объект следует за «Нереидой». Вернитесь к маяку и всплывите!');
     } else if (e.type === 'specimen' && !e.collected) {
       e.collected = true; state.samples++; collectSound(); state.oxygen = Math.min(100, state.oxygen + 4);
       log('Биообразец сохранён. Назначьте биолога в лабораторию для анализа.');
+      if(state.contractId==='research'&&state.samples>=3)completeContract('Контейнеры заполнены. Возвращайтесь к маяку для передачи образцов.');
+    } else if(e.type==='distress'&&!e.collected&&state.contractId==='rescue'){
+      e.collected=true;state.rescued=true;state.oxygen=Math.max(12,state.oxygen-8);collectSound();
+      state.journal.push({title:'ЭВАКУАЦИЯ «КЕЛЬВИНА»',text:'Из аварийного модуля подняты трое выживших. Запас воздуха рассчитан только на немедленное возвращение.',unlocked:true});renderJournal();
+      completeContract('Выжившие на борту. Немедленно возвращайтесь к маяку: расход кислорода увеличен.');
     } else if (e.type === 'vent') {
       state.energy = Math.min(100, state.energy + 38); state.oxygen = Math.min(100, state.oxygen + 12);
       e.cooldown = 18; log('Термогенератор заряжен. Кислород частично восстановлен.');
@@ -554,11 +618,15 @@
     state.nearby = null; updateAction(); updateHud();
   }
 
+  function completeContract(message){
+    state.missionComplete=true;ui.mission.textContent='ВОЗВРАЩЕНИЕ НА БАЗУ';const beacon=entities.find(item=>item.type==='beacon');if(beacon)beacon.reveal=999;log(message,true);
+  }
+
   function updateAction() {
     const e = state.nearby;
     ui.action.classList.toggle('visible', !!e);
     if (!e) return;
-    ui.action.textContent = e.type === 'wreck' ? 'ИЗВЛЕЧЬ САМОПИСЕЦ' : e.type === 'specimen' ? 'ВЗЯТЬ БИООБРАЗЕЦ' : 'ПОДКЛЮЧИТЬ ГЕНЕРАТОР';
+    ui.action.textContent = e.type === 'wreck' ? 'ИЗВЛЕЧЬ САМОПИСЕЦ' : e.type === 'specimen' ? 'ВЗЯТЬ БИООБРАЗЕЦ' : e.type==='distress' ? 'ЭВАКУИРОВАТЬ ВЫЖИВШИХ' : 'ПОДКЛЮЧИТЬ ГЕНЕРАТОР';
   }
 
   function renderJournal() {
@@ -590,7 +658,7 @@
     }
     state.outsideTemperature = clamp(8-state.depth*.012,-5,8);
     const movingDemand = Math.hypot(state.targetX-state.x,state.targetY-state.y)>8 ? (state.silent ? .45 : 1) : .18;
-    const propulsionPower=clamp(state.power.propulsion/35,.2,1.45), pumpPower=clamp(state.power.pumps/25,.18,1.7);
+    const propulsionPower=clamp(state.power.propulsion/35,.2,1.45), pumpPower=clamp(state.power.pumps/25,.18,1.7)*state.pumpFactor;
     const thermalTargets = {
       sonar: 17+state.energy*.045+(state.power.life-25)*.16,
       command: 19+state.energy*.04+(state.power.life-25)*.16,
@@ -674,7 +742,7 @@
     const targetTrim=Object.values(state.rooms).reduce((sum,room)=>sum+room.water*weights[room.id],0)/15;
     state.trim+=(clamp(targetTrim,-12,12)-state.trim)*dt*.8;
     const activePumps=Object.values(state.rooms).filter(room=>room.pumping).length,activeRepairs=Object.values(state.rooms).filter(room=>room.repairing>0).length;
-    const moving=movingDemand>.2, targetNoise=6+(moving?(state.silent?9:27)*propulsionPower:2)+activePumps*9*pumpPower+activeRepairs*6+(state.coolingOn?8:0)+(state.pingActive?28:0)+Math.abs(state.trim)*1.2;
+    const moving=movingDemand>.2, targetNoise=(6+(moving?(state.silent?9:27)*propulsionPower:2)+activePumps*9*pumpPower+activeRepairs*6+(state.coolingOn?8:0)+(state.pingActive?28:0)+Math.abs(state.trim)*1.2)*state.quietFactor;
     state.noise+=(clamp(targetNoise,0,100)-state.noise)*dt*(targetNoise>state.noise?2.2:.55);
 
     if (state.passiveOn) {
@@ -717,7 +785,7 @@
     if (state.depth < 12) {
       state.oxygen = Math.min(100, state.oxygen + dt * 5.5);
       if (!state.surfaced) { state.surfaced = true; log('Поверхность достигнута. Забортный воздух поступает в систему.'); }
-    } else { state.surfaced = false; state.oxygen -= dt * (.205 + depthLoad * .12) * clamp(25/state.power.life,.65,2.5); }
+    } else { state.surfaced = false; state.oxygen -= dt * (.205 + depthLoad * .12) * clamp(25/state.power.life,.65,2.5)*(state.rescued?1.42:1); }
     const engineEfficiency = Math.max(.08,state.rooms.engine.health/100) * (state.rooms.engine.incident ? .55 : 1) * Math.max(.12,1-state.rooms.engine.water/112);
     state.energy = clamp(state.energy + dt * ((state.silent ? 2.4 : 1.35) + (crewAt('engineer','engine') ? .42 : 0)) * engineEfficiency - dt * depthLoad * .34 - dt*state.temperatureLoad*.018 - (state.coolingOn ? dt*.72 : 0),0,100);
     if(state.coolingOn&&(state.energy<=1||state.rooms.engine.water>=75||state.rooms.engine.health<=0)){state.coolingOn=false;ui.cooling.classList.remove('active');log('Аварийное охлаждение отключилось.');}
@@ -758,6 +826,7 @@
 
       if (e.type === 'wreck' && !e.collected && horizontal < 72 && verticalGap < 80) state.nearby = e;
       if (e.type === 'specimen' && !e.collected && horizontal < 64 && verticalGap < 75) state.nearby = e;
+      if (e.type === 'distress' && state.contractId==='rescue' && !e.collected && horizontal < 85 && verticalGap < 90) state.nearby = e;
       if (e.type === 'vent' && !e.cooldown && horizontal < 72 && verticalGap < 90) state.nearby = e;
       if (e.type === 'mine' && !e.collected && d < 46) {
         e.collected = true; damage(18, 'Мина! Пробоина внешнего корпуса.'); triggerIncident('breach');
@@ -781,6 +850,8 @@
     bubbles = bubbles.filter(b => b.life > 0);
     ripples.forEach(r => { r.r += dt * 85; r.life -= dt * .8; });
     ripples = ripples.filter(r => r.life > 0);
+    if(state.oxygen<18&&state.oxygenCylinders>0){state.oxygenCylinders--;state.oxygen=Math.min(100,state.oxygen+38);log('Подключён резервный кислородный баллон.');tone(330,.25,.02,'triangle');}
+    if(state.energy<12&&state.batteries>0){state.batteries--;state.energy=Math.min(100,state.energy+42);log('Аварийная аккумуляторная батарея подключена.');tone(480,.28,.02,'triangle');}
     if (state.oxygen <= 0) lose('Запас кислорода исчерпан. «Нереида» осталась в безмолвной глубине.');
     if (state.hull <= 0) lose('Корпус не выдержал давления. Последний сигнал подлодки растворился в помехах.');
     updateAction();
@@ -789,7 +860,7 @@
 
   let lastAlert = 0;
   function damage(amount, text) {
-    state.hull -= amount; state.cameraShake = Math.min(12, state.cameraShake + amount * .6);
+    amount*=state.damageReduction||1;state.hull -= amount; state.cameraShake = Math.min(12, state.cameraShake + amount * .6);
     if (performance.now() - lastAlert > 1600) { alertSound(); log(text, true); lastAlert = performance.now(); }
   }
 
@@ -797,7 +868,9 @@
     const set = (text, bar, value) => { text.textContent = `${Math.max(0, Math.round(value))}%`; bar.style.width = `${clamp(value, 0, 100)}%`; };
     ui.depth.textContent = Math.round(state.depth);
     set(ui.oxygen, ui.oxygenBar, state.oxygen); set(ui.energy, ui.energyBar, state.energy); set(ui.hull, ui.hullBar, state.hull);
-    ui.fragments.textContent = state.fragments;
+    const progress=state.contractId==='research'?state.samples:state.contractId==='rescue'?(state.rescued?1:0):state.fragments;
+    ui.fragments.textContent = progress;
+    ui.progressLabel.textContent=state.contractId==='research'?' / 3 образца':state.contractId==='rescue'?' / 1 эвакуация':' / 3 фрагмента';
     ui.samples.textContent = state.samples;
     ui.targetDepth.textContent = Math.round(state.targetDepth);
     const zone = state.depth < 20 ? 'ПОВЕРХНОСТЬ' : state.depth < 140 ? 'ПЕРИСКОПНАЯ ГЛУБИНА' : state.depth < 560 ? 'ХОЛОДНЫЙ ШЕЛЬФ' : state.depth < 860 ? 'СУМЕРЕЧНАЯ ЗОНА' : state.depth < 1050 ? 'АБИССАЛЬНАЯ ЗОНА' : 'ЗОНА ДАВЛЕНИЯ';
@@ -807,7 +880,8 @@
     const pingCost = Math.ceil((crewAt('sonar','sonar') ? 14 : 18) / (.72+roomEfficiency(state.rooms.sonar)*.28) / Math.sqrt(clamp(state.power.sonar/15,.35,1.8))), repairCost = crewAt('engineer','engine') ? 20 : 25;
     ui.ping.disabled = state.rooms.sonar.health <= 0 || state.rooms.sonar.water >= 70 || !!state.rooms.sonar.incident || state.energy < pingCost || state.pingActive; ui.ping.querySelector('small').textContent = state.rooms.sonar.water >= 70 ? 'отсек затоплен' : state.rooms.sonar.health <= 0 ? 'пост отключён' : `−${pingCost} энергии`;
     ui.cooling.disabled=state.rooms.engine.health<=0||state.rooms.engine.water>=75||state.energy<5;ui.cooling.querySelector('small').textContent=state.coolingOn?'расход энергии':'реактор';
-    ui.repair.disabled = state.energy < repairCost || state.hull >= 99; ui.repair.querySelector('small').textContent = `−${repairCost} энергии`;
+    ui.repair.disabled = (state.repairKits<=0&&state.energy < repairCost) || state.hull >= 99; ui.repair.querySelector('small').textContent = state.repairKits>0?`комплектов: ${state.repairKits}`:`−${repairCost} энергии`;
+    ui.supplyStatus.textContent=`РЕМ ${state.repairKits} · O₂ ${state.oxygenCylinders} · АКБ ${state.batteries}`;
   }
 
   function log(text, alert = false) {
@@ -818,11 +892,12 @@
   function win() {
     if (!running) return; running = false;
     const secs = Math.round((performance.now() - startedAt) / 1000);
-    profile.credits += 350; saveProfile(); renderCrew();
+    const reward=state.contract.reward;profile.credits += reward; saveProfile(); renderCrew();
     const best = Number(localStorage.getItem('depth-best') || 0);
     if (!best || secs < best) localStorage.setItem('depth-best', secs);
-    ui.endEyebrow.textContent = 'СИГНАЛ ВОССТАНОВЛЕН'; ui.endTitle.textContent = 'ЭКСПЕДИЦИЯ СПАСЕНА';
-    ui.endText.textContent = `Все фрагменты доставлены на поверхность. Время погружения: ${formatTime(secs)}. Награда: 350 CR. Но в последней записи слышен звук, которого не должно существовать…`;
+    ui.endEyebrow.textContent = state.contract.region; ui.endTitle.textContent = 'ПОХОД ЗАВЕРШЁН';
+    const outcome=state.contractId==='salvage'?'Все фрагменты самописца доставлены на базу.':state.contractId==='research'?'Живые образцы переданы исследовательскому центру.':'Выжившие со станции «Кельвин» подняты на поверхность.';
+    ui.endText.textContent = `${outcome} Время похода: ${formatTime(secs)}. Награда: ${reward} CR.`;
     ui.end.classList.add('visible'); collectSound();
   }
 
@@ -890,6 +965,7 @@
 
   function drawEntity(e, time) {
     if (e.collected) return;
+    if(e.type==='distress'&&state.contractId!=='rescue')return;
     const s = worldToScreen(e.x, e.y); if (!onscreen(s.x, s.y, 100)) return;
     const visible = e.reveal > 0 || e.type === 'beacon' || e.type === 'flora'; if (!visible) return;
     const fade = Math.min(1, e.reveal || 1), depthFade = clamp(1 - Math.abs(e.z-state.depth)/320,.08,1), pulse = .8 + Math.sin(time / 320 + e.phase) * .2;
@@ -912,6 +988,9 @@
     } else if (e.type === 'flora') {
       const glow=.18+.18*Math.sin(e.phase*1.3);ctx.globalAlpha=glow*depthFade;ctx.strokeStyle=e.index%2?'#56e9ff':'#b674ff';ctx.lineWidth=1;
       ctx.beginPath();ctx.moveTo(0,12);ctx.quadraticCurveTo(Math.sin(e.phase)*9,-2,Math.cos(e.phase*.7)*7,-18);ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.arc(Math.cos(e.phase*.7)*7,-18,2.2,0,7);ctx.fill();
+    } else if(e.type==='distress'){
+      ctx.rotate(-.18);ctx.strokeStyle='#ffda75';ctx.fillStyle='rgba(255,202,99,.1)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.rect(-25,-12,50,24);ctx.fill();ctx.stroke();ctx.fillStyle='#ff6680';ctx.shadowColor='#ff6680';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(15,-5,3+2*pulse,0,7);ctx.fill();ctx.shadowBlur=0;label('SOS · КЕЛЬВИН',0,31,'#ffda75');
     } else if (e.type === 'beacon') {
       const active = state.missionComplete; ctx.strokeStyle = active ? '#ffca63' : '#56e9ff'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(0,0,13*pulse,0,7); ctx.stroke(); ctx.beginPath();ctx.arc(0,0,23*pulse,0,7);ctx.stroke(); ctx.fillStyle=ctx.strokeStyle;ctx.fillRect(-2,-2,4,4);
@@ -954,7 +1033,7 @@
   function loop(now) {
     if (!running) return;
     const dt = Math.min(.035, (now - last) / 1000 || 0); last = now;
-    if (!ui.journal.classList.contains('visible') && !ui.crewScreen.classList.contains('visible')) update(dt);
+    if (!ui.journal.classList.contains('visible') && !ui.crewScreen.classList.contains('visible')&&!ui.expeditionScreen.classList.contains('visible')) update(dt);
     draw(now); drawMiniSonar(now); requestAnimationFrame(loop);
   }
 
@@ -975,6 +1054,7 @@
   $('surfaceBtn').addEventListener('click', surface);
   $('journalBtn').addEventListener('click', openJournal); $('closeJournalBtn').addEventListener('click', closeJournal);
   $('crewBtn').addEventListener('click', openCrew); $('openCrewIntroBtn').addEventListener('click', openCrew); $('closeCrewBtn').addEventListener('click', closeCrew);
+  $('routeBtn').addEventListener('click',openExpedition);$('openExpeditionBtn').addEventListener('click',openExpedition);$('closeExpeditionBtn').addEventListener('click',closeExpedition);
   $('startBtn').addEventListener('click', start); $('restartBtn').addEventListener('click', start);
   addEventListener('resize', resize); resize(); reset(); draw(0); drawMiniSonar(0);
   const best = Number(localStorage.getItem('depth-best') || 0); if (best) ui.best.textContent = `Лучшее погружение: ${formatTime(best)}`;
