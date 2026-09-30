@@ -3,219 +3,141 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#03121d">
-  <meta name="description" content="Глубина — атмосферная экспедиция на исследовательской подлодке">
-  <title>Глубина</title>
+  <meta name="theme-color" content="#061019">
+  <meta name="description" content="Подо льдом — сюжетная экспедиция в океане Европы">
+  <title>Подо льдом: Европа</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=16">
+  <link rel="stylesheet" href="styles.css?v=17-release">
 </head>
 <body>
-  <main id="game" aria-label="Игра Глубина">
-    <canvas id="ocean" aria-label="Экран сонара"></canvas>
+  <main id="game">
+    <canvas id="ocean" aria-hidden="true"></canvas>
 
-    <header class="hud top-hud">
-      <section class="brand">
-        <span class="brand-mark">◉</span>
-        <div><b>ГЛУБИНА</b><small>ЭКСПЕДИЦИЯ «НЕРЕИДА»</small></div>
-      </section>
-      <section class="depth"><small id="zoneName">СУМЕРЕЧНАЯ ЗОНА</small><strong><span id="depthValue">640</span> м</strong></section>
+    <header class="topbar glass">
+      <div class="brand"><i>◉</i><div><b>ПОДО ЛЬДОМ</b><small>ОКЕАН ЕВРОПЫ · ЭКСПЕДИЦИЯ «НЕРЕИДА»</small></div></div>
+      <div class="depth"><small id="zoneName">ВЕРХНИЙ ОКЕАН</small><strong><span id="depthValue">2 140</span> м</strong></div>
     </header>
 
-    <section class="status-panel hud" aria-label="Состояние подлодки">
-      <div class="meter oxygen"><label>O₂ <span id="oxygenText">100%</span></label><i><em id="oxygenBar"></em></i></div>
-      <div class="meter energy"><label>ЭНЕРГИЯ <span id="energyText">100%</span></label><i><em id="energyBar"></em></i></div>
-      <div class="meter hull"><label>КОРПУС <span id="hullText">100%</span></label><i><em id="hullBar"></em></i></div>
+    <section class="resources glass" aria-label="Состояние подлодки">
+      <div class="resource hull"><label>КОРПУС <b id="hullText">100%</b></label><i><em id="hullBar"></em></i></div>
+      <div class="resource energy"><label>ЭНЕРГИЯ <b id="energyText">100%</b></label><i><em id="energyBar"></em></i></div>
+      <div class="resource oxygen"><label>КИСЛОРОД <b id="oxygenText">100%</b></label><i><em id="oxygenBar"></em></i></div>
+      <div class="resource heat"><label>ТЕПЛО <b id="heatText">62%</b></label><i><em id="heatBar"></em></i></div>
     </section>
 
-    <aside class="mission hud">
-      <small>ЗАДАЧА</small>
-      <b id="missionTitle">Найти чёрные ящики</b>
-      <span><strong id="fragments">0</strong><span id="missionProgressLabel"> / 3 фрагмента</span></span>
-      <span class="samples"><strong id="samples">0</strong> образцов</span>
-      <span class="supplies" id="supplyStatus">РЕМ 2 · O₂ 2 · АКБ 1</span>
-      <div class="mission-buttons"><button id="routeBtn" type="button">КАРТА</button><button id="journalBtn" type="button">ЖУРНАЛ</button><button id="crewBtn" type="button">ЭКИПАЖ <b id="crewCount">0/2</b></button></div>
-    </aside>
+    <section class="mission-card glass">
+      <div><small>ТЕКУЩАЯ ЭКСПЕДИЦИЯ</small><h2 id="missionTitle">Ожидание маршрута</h2><p id="missionObjective">Выберите миссию в журнале экспедиций.</p></div>
+      <div class="route-progress"><i><em id="routeProgress"></em></i><span id="routeText">БАЗА «ГАЛИЛЕЙ»</span></div>
+      <div class="mission-actions"><button id="missionsBtn" class="small-btn">МИССИИ</button><button id="journalBtn" class="small-btn">ЖУРНАЛ</button></div>
+    </section>
 
-    <section id="interiorView" class="interior-view" aria-label="Интерьер подлодки">
-      <header class="interior-header">
-        <div><small>СОСТОЯНИЕ СУДНА</small><b id="interiorStatus">СИСТЕМЫ В НОРМЕ</b></div>
-        <div class="interior-indicators"><div class="thermal-summary" id="thermalSummary">СНАРУЖИ 0°C</div><div class="interior-alert" id="interiorAlert">НЕИСПРАВНОСТЕЙ НЕТ</div></div>
+    <section class="interior glass" aria-label="Интерьер подлодки Нереида">
+      <header class="interior-heading">
+        <div><small>БОКОВОЙ РАЗРЕЗ · НИО-17</small><b id="shipStatus">СИСТЕМЫ В НОРМЕ</b></div>
+        <span id="ambientStatus">Лёд над корпусом: 11,4 км</span>
       </header>
-
-      <div class="crew-assignment">
-        <small>ЭКИПАЖ · ВЫБЕРИТЕ СПЕЦИАЛИСТА, ЗАТЕМ ОТСЕК</small>
-        <div id="interiorCrew" class="interior-crew"></div>
-      </div>
-
-      <div class="cutaway-scroll" aria-label="Боковой разрез подлодки">
-        <div class="sub-cutaway">
-          <div class="hull-mark">НЕРЕИДА · НИО-07</div>
-          <article class="compartment" data-room="sonar">
-            <div class="room-scene sonar-scene" aria-hidden="true">
-              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
-              <div class="sonar-bank"><i></i><i></i><i></i><span></span></div><div class="operator-chair"></div><div class="cable-coil"></div>
-              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
-            </div>
-            <div class="room-readout"><div class="room-icon">◉</div><small>ОТСЕК 01</small><h3>ГИДРОАКУСТИЧЕСКИЙ ПОСТ</h3>
-              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>18°C</span></div>
-              <div class="room-task">Пассивное наблюдение</div><div class="room-crew"></div><div class="room-incident"></div>
-            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+      <div class="cutaway-scroll">
+        <div id="submarine" class="submarine">
+          <div class="outer-hull"></div>
+          <div class="bow"></div><div class="stern"></div><div class="conning"><i></i></div>
+          <article class="room hydro-room" data-room="hydro">
+            <div class="ceiling-lamp"></div><div class="pipes"></div>
+            <div class="sonar-rack"><i></i><i></i><i></i></div><div class="chair"></div>
+            <span class="person person-a"><i></i></span>
+            <div class="room-label"><b>01 · ГИДРОФОН</b><small id="hydroTask">Пассивное наблюдение</small></div>
+            <div class="room-fx"><i class="leak"></i><i class="spark"></i><i class="fire"></i></div>
           </article>
-          <article class="compartment" data-room="command">
-            <div class="room-scene command-scene" aria-hidden="true">
-              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
-              <div class="helm-wheel"></div><div class="chart-table"><i></i></div><div class="command-panels"><i></i><i></i><i></i></div>
-              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
-            </div>
-            <div class="room-readout"><div class="room-icon">⌖</div><small>ОТСЕК 02</small><h3>КОМАНДНЫЙ ОТСЕК</h3>
-              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>20°C</span></div>
-              <div class="room-task">Управление экспедицией</div><div class="room-crew"></div><div class="room-incident"></div>
-            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+          <article class="room command-room" data-room="command">
+            <div class="ceiling-lamp"></div><div class="pipes"></div>
+            <div class="chart-table"><i></i></div><div class="windows"><i></i><i></i><i></i></div>
+            <span class="person person-b"><i></i></span><span class="person person-c"><i></i></span>
+            <div class="room-label"><b>02 · РУБКА</b><small id="commandTask">Стоянка у станции</small></div>
+            <div class="room-fx"><i class="leak"></i><i class="spark"></i><i class="fire"></i></div>
           </article>
-          <article class="compartment" data-room="engine">
-            <div class="room-scene engine-scene" aria-hidden="true">
-              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
-              <div class="reactor-core"><i></i><span></span></div><div class="engine-pipes"><i></i><i></i><i></i></div><div class="pressure-bank"></div>
-              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
-            </div>
-            <div class="room-readout"><div class="room-icon">⚙</div><small>ОТСЕК 03</small><h3>МАШИННОЕ ОТДЕЛЕНИЕ</h3>
-              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>32°C</span></div>
-              <div class="room-task">Реактор стабилен</div><div class="room-crew"></div><div class="room-incident"></div>
-            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+          <article class="room reactor-room" data-room="reactor">
+            <div class="ceiling-lamp"></div><div class="pipes"></div>
+            <div class="reactor"><i></i><span></span></div><div class="gauges"><i></i><i></i><i></i></div>
+            <span class="person person-d"><i></i></span>
+            <div class="room-label"><b>03 · РЕАКТОР</b><small id="reactorTask">Номинальная мощность</small></div>
+            <div class="room-fx"><i class="leak"></i><i class="spark"></i><i class="fire"></i></div>
           </article>
-          <article class="compartment" data-room="lab">
-            <div class="room-scene lab-scene" aria-hidden="true">
-              <i class="ceiling-light"></i><i class="pipe pipe-a"></i><i class="pipe pipe-b"></i>
-              <div class="sample-tank"><i></i></div><div class="lab-desk"><i></i><i></i></div><div class="storage-lockers"></div>
-              <div class="hazard-fx"><i class="leak-fx"></i><i class="spark-fx"></i><i class="fire-fx"></i><i class="steam-fx"></i></div>
-            </div>
-            <div class="room-readout"><div class="room-icon">⌁</div><small>ОТСЕК 04</small><h3>ЛАБОРАТОРИЯ</h3>
-              <div class="room-health"><i><em></em></i><span>100%</span></div><div class="room-water"><i><em></em></i><span>ВОДА 0%</span></div><div class="room-temperature"><i><em></em></i><span>19°C</span></div>
-              <div class="room-task">Нет образцов для анализа</div><div class="room-crew"></div><div class="room-incident"></div>
-            </div><button class="room-action" type="button">УСТРАНИТЬ</button>
+          <article class="room lab-room" data-room="lab">
+            <div class="ceiling-lamp"></div><div class="pipes"></div>
+            <div class="specimen"><i></i></div><div class="lab-table"><i></i><i></i></div>
+            <span class="person person-e"><i></i></span>
+            <div class="room-label"><b>04 · ЛАБОРАТОРИЯ</b><small id="labTask">Контейнеры пусты</small></div>
+            <div class="room-fx"><i class="leak"></i><i class="spark"></i><i class="fire"></i></div>
           </article>
-          <div id="transitLayer" class="transit-layer" aria-hidden="true"></div>
-          <button class="cutaway-door door-one" type="button" data-bulkhead="sonar-command" aria-label="Переборка между отсеками 01 и 02"><i></i><small>ОТКРЫТА</small></button>
-          <button class="cutaway-door door-two" type="button" data-bulkhead="command-engine" aria-label="Переборка между отсеками 02 и 03"><i></i><small>ОТКРЫТА</small></button>
-          <button class="cutaway-door door-three" type="button" data-bulkhead="engine-lab" aria-label="Переборка между отсеками 03 и 04"><i></i><small>ОТКРЫТА</small></button>
+          <div class="waterline"></div>
         </div>
       </div>
-
-      <section class="damage-control" aria-label="Пост борьбы за живучесть">
-        <header><div><small>ЦЕНТРАЛЬНЫЙ ПОСТ</small><b>БОРЬБА ЗА ЖИВУЧЕСТЬ</b></div><div class="survival-readouts"><span id="noiseReadout">ШУМ 12%</span><span id="trimReadout">ДИФФЕРЕНТ 0°</span></div></header>
-        <div class="bulkhead-strip">
-          <span>ПЕРЕБОРКИ</span>
-          <button type="button" data-bulkhead="sonar-command"><b>01—02</b><small>ОТКРЫТА</small></button>
-          <button type="button" data-bulkhead="command-engine"><b>02—03</b><small>ОТКРЫТА</small></button>
-          <button type="button" data-bulkhead="engine-lab"><b>03—04</b><small>ОТКРЫТА</small></button>
-        </div>
-        <div class="power-board">
-          <div class="power-heading"><span>РАСПРЕДЕЛЕНИЕ МОЩНОСТИ</span><strong id="powerBudget">100 / 100</strong></div>
-          <label>ХОДОВАЯ <input type="range" min="5" max="50" step="5" value="35" data-power="propulsion"><output>35</output></label>
-          <label>ПОМПЫ <input type="range" min="5" max="50" step="5" value="25" data-power="pumps"><output>25</output></label>
-          <label>ЖИЗНЕОБЕСПЕЧЕНИЕ <input type="range" min="5" max="50" step="5" value="25" data-power="life"><output>25</output></label>
-          <label>СОНАР <input type="range" min="5" max="50" step="5" value="15" data-power="sonar"><output>15</output></label>
-        </div>
-        <div id="emergencyObjective" class="emergency-objective"><small>АВАРИЙНАЯ ЗАДАЧА</small><b>ОЖИДАНИЕ</b><span>Центральный пост готов к борьбе за живучесть.</span></div>
-      </section>
-
-      <section class="navigation-console">
-        <div class="mini-sonar-panel">
-          <canvas id="miniSonar" width="260" height="180" aria-label="Навигационный сонар"></canvas>
-          <div class="mini-sonar-caption"><b>НАВИГАЦИОННЫЙ СОНАР</b><span>Коснитесь экрана, чтобы задать курс</span></div>
-        </div>
-        <div class="helm-console">
-          <section class="passive-console">
-            <div><small>ПАССИВНЫЙ ГИДРОФОН</small><strong id="passiveContact">РЕЖИМ ОЖИДАНИЯ</strong><span id="passiveBearing">Контакты не обнаружены</span></div>
-            <button id="passiveBtn" type="button">ВКЛЮЧИТЬ</button>
-          </section>
-          <section class="depth-controls" aria-label="Управление глубиной">
-            <button id="ascendBtn" type="button" aria-label="Подняться">▲<small>ВЫШЕ</small></button>
-            <div><span id="targetDepth">640</span><small id="ballastMode">НЕЙТРАЛЬНО</small></div>
-            <button id="descendBtn" type="button" aria-label="Погрузиться">▼<small>ГЛУБЖЕ</small></button>
-            <button id="surfaceBtn" class="surface-btn" type="button" aria-label="Всплыть на поверхность">▲▲<small>ВСПЛЫТЬ</small></button>
-          </section>
-          <section class="controls">
-            <button id="silentBtn" class="control secondary" type="button"><span>◌</span><b>ТИХИЙ ХОД</b><small>маскировка</small></button>
-            <button id="pingBtn" class="control ping" type="button"><span>◉</span><b>ИМПУЛЬС</b><small>−18 энергии</small></button>
-            <button id="coolingBtn" class="control secondary" type="button"><span>❄</span><b>ОХЛАЖДЕНИЕ</b><small>реактор</small></button>
-            <button id="repairBtn" class="control secondary" type="button"><span>✚</span><b>КОРПУС</b><small>−25 энергии</small></button>
-          </section>
-        </div>
-      </section>
-      <button id="actionBtn" class="context-action" type="button">ИССЛЕДОВАТЬ ОБЪЕКТ</button>
-      <section id="log" class="log" aria-live="polite"></section>
     </section>
+
+    <section class="captain-console glass">
+      <div class="passive-sonar" aria-label="Пассивный сонар">
+        <canvas id="sonar" width="300" height="180"></canvas>
+        <div class="sonar-copy"><small>ПАССИВНЫЙ ГИДРОФОН</small><b id="contactTitle">ОКЕАН СПОКОЕН</b><span id="contactText">Только треск ледяной коры</span></div>
+      </div>
+      <div class="journey-controls">
+        <small>РЕЖИМ ДВИЖЕНИЯ</small>
+        <div class="speed-buttons">
+          <button data-speed="silent"><b>ТИХИЙ</b><span>меньше риска</span></button>
+          <button data-speed="cruise" class="active"><b>КРЕЙСЕРСКИЙ</b><span>обычный ход</span></button>
+          <button data-speed="full"><b>ПОЛНЫЙ</b><span>быстрее, опаснее</span></button>
+        </div>
+        <button id="continueBtn" class="continue-btn" disabled><span>ПРОДОЛЖИТЬ ПУТЬ</span><small id="continueHint">Сначала выберите миссию</small></button>
+      </div>
+    </section>
+
+    <section id="messageLog" class="message-log glass" aria-live="polite">«Нереида» закреплена в доке станции «Галилей».</section>
 
     <div id="intro" class="overlay visible">
-      <section class="dialog">
-        <div class="eyebrow">СЕКТОР 07 · 02:14</div>
-        <h1>ГЛУБИНА</h1>
-        <p>Исследовательская подлодка «Нереида» получила последний сигнал экспедиции, пропавшей под ледяным разломом.</p>
-        <div class="briefing">
-          <span>Управляйте лодкой из её отсеков.</span>
-          <span>Распределяйте мощность и герметизируйте аварийные отсеки.</span>
-          <span>Коснитесь малого сонара, чтобы задать курс.</span>
-          <span>Тихий ход помогает скрыться от контактов.</span>
-          <span>Меняйте глубину и исследуйте объекты вручную.</span>
-        </div>
-        <button id="startBtn" type="button">НАЧАТЬ ПОГРУЖЕНИЕ</button>
-        <button id="openExpeditionBtn" class="ghost-button" type="button">КАРТА ПОХОДА И СНАРЯЖЕНИЕ</button>
-        <button id="openCrewIntroBtn" class="ghost-button" type="button">СФОРМИРОВАТЬ ЭКИПАЖ</button>
-        <small class="best" id="bestRun"></small>
+      <section class="dialog intro-dialog">
+        <div class="eyebrow">ЕВРОПА · 13,4 А.Е. ОТ ЗЕМЛИ</div>
+        <h1>ПОДО ЛЬДОМ</h1>
+        <p>Под одиннадцатью километрами льда лежит океан, которого никто не видел. Исследовательская подлодка «Нереида» отправляется туда, откуда перестали возвращаться сигналы.</p>
+        <div class="simple-rules"><span><b>01</b> Выберите экспедицию</span><span><b>02</b> Принимайте решения в пути</span><span><b>03</b> Вернитесь с открытием</span></div>
+        <button id="startBtn" class="primary-btn">ОТКРЫТЬ ЖУРНАЛ ЭКСПЕДИЦИЙ</button>
+        <small id="saveNote">Прогресс сохраняется на устройстве</small>
       </section>
     </div>
 
-    <div id="endScreen" class="overlay">
-      <section class="dialog">
-        <div class="eyebrow" id="endEyebrow">СВЯЗЬ ПОТЕРЯНА</div>
-        <h2 id="endTitle">ЭКСПЕДИЦИЯ ЗАВЕРШЕНА</h2>
-        <p id="endText"></p>
-        <button id="restartBtn" type="button">НОВАЯ ЭКСПЕДИЦИЯ</button>
+    <div id="eventOverlay" class="overlay event-overlay" role="dialog" aria-modal="true">
+      <section class="dialog event-dialog">
+        <div class="event-art"><div id="eventGlyph">◉</div><i></i><i></i><i></i></div>
+        <div class="eyebrow" id="eventType">СОБЫТИЕ</div>
+        <h2 id="eventTitle">Неизвестный сигнал</h2>
+        <p id="eventText"></p>
+        <blockquote id="eventQuote"></blockquote>
+        <div id="eventChoices" class="event-choices"></div>
+        <div id="eventResult" class="event-result"><p></p><div class="effects"></div><button id="eventContinue" class="primary-btn">ПРОДОЛЖИТЬ</button></div>
       </section>
     </div>
 
-    <div id="journal" class="overlay journal-overlay">
+    <div id="missionsOverlay" class="overlay missions-overlay">
+      <section class="dialog missions-dialog">
+        <header><div><div class="eyebrow">СТАНЦИЯ «ГАЛИЛЕЙ»</div><h2>ЖУРНАЛ ЭКСПЕДИЦИЙ</h2></div><button id="closeMissions" class="close-btn">×</button></header>
+        <p class="missions-lead">Курс прокладывается автоматически. Вы отвечаете только за решения, которые меняют судьбу экспедиции.</p>
+        <div id="missionList" class="mission-list"></div>
+      </section>
+    </div>
+
+    <div id="journalOverlay" class="overlay journal-overlay">
       <section class="dialog journal-dialog">
-        <div class="eyebrow">БОРТОВОЙ АРХИВ</div>
-        <h2>ЖУРНАЛ «НЕРЕИДЫ»</h2>
+        <header><div><div class="eyebrow">ПАМЯТЬ «НЕРЕИДЫ»</div><h2>КАПИТАНСКИЙ ЖУРНАЛ</h2></div><button id="closeJournal" class="close-btn">×</button></header>
         <div id="journalEntries" class="journal-entries"></div>
-        <button id="closeJournalBtn" type="button">ВЕРНУТЬСЯ К ПОГРУЖЕНИЮ</button>
       </section>
     </div>
 
-    <div id="crewScreen" class="overlay crew-overlay">
-      <section class="dialog crew-dialog">
-        <div class="eyebrow">ЦЕНТР ПОДВОДНЫХ ИССЛЕДОВАНИЙ</div>
-        <h2>ЭКИПАЖ «НЕРЕИДЫ»</h2>
-        <div class="crew-balance">БЮДЖЕТ: <strong><span id="credits">1000</span> CR</strong> · МЕСТА: <strong><span id="crewSlots">0</span>/2</strong></div>
-        <div id="crewCards" class="crew-cards"></div>
-        <button id="closeCrewBtn" type="button">ГОТОВО</button>
-      </section>
-    </div>
-
-    <div id="expeditionScreen" class="overlay expedition-overlay">
-      <section class="dialog expedition-dialog">
-        <header class="expedition-title"><div><div class="eyebrow">ЦЕНТР ПОДВОДНЫХ ИССЛЕДОВАНИЙ</div><h2>ПЛАН ПОХОДА</h2></div><strong><span id="expeditionCredits">0</span> CR</strong></header>
-        <div class="expedition-map" aria-label="Карта районов экспедиции">
-          <i class="route-line line-a"></i><i class="route-line line-b"></i><i class="route-line line-c"></i><i class="route-line line-d"></i><i class="route-line line-e"></i>
-          <button class="map-node base active" type="button" data-map-node="base"><b>БАЗА</b><small>НИО-07</small></button>
-          <button class="map-node shelf" type="button" data-map-node="salvage"><b>ШЕЛЬФ</b><small>«ОРФЕЙ»</small></button>
-          <button class="map-node rift" type="button" data-map-node="research"><b>РАЗЛОМ</b><small>БИОСИГНАЛ</small></button>
-          <button class="map-node station" type="button" data-map-node="rescue"><b>СТАНЦИЯ</b><small>SOS</small></button>
-          <span class="map-node dead"><b>МЁРТВАЯ ЗОНА</b><small>980 М</small></span>
-          <span class="map-node abyss"><b>АБИССАЛЬ</b><small>ЗАКРЫТО</small></span>
-        </div>
-        <div class="expedition-grid">
-          <section class="contract-panel"><small>КОНТРАКТ</small><div id="contractCards" class="contract-cards"></div></section>
-          <section class="loadout-panel"><small>СНАРЯЖЕНИЕ · 6 МЕСТ</small><div id="loadoutControls" class="loadout-controls"></div><div id="cargoWarning" class="cargo-warning"></div></section>
-          <section class="upgrade-panel"><small>МОДЕРНИЗАЦИЯ «НЕРЕИДЫ»</small><div id="upgradeCards" class="upgrade-cards"></div></section>
-        </div>
-        <button id="closeExpeditionBtn" type="button">УТВЕРДИТЬ ПЛАН ПОХОДА</button>
+    <div id="endOverlay" class="overlay end-overlay">
+      <section class="dialog end-dialog">
+        <div class="eyebrow" id="endEyebrow">ЭКСПЕДИЦИЯ ЗАВЕРШЕНА</div>
+        <h2 id="endTitle">Возвращение к свету</h2><p id="endText"></p>
+        <button id="endBtn" class="primary-btn">ВЕРНУТЬСЯ НА СТАНЦИЮ</button>
       </section>
     </div>
   </main>
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17-release"></script>
 </body>
 </html>
