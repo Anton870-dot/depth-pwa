@@ -290,6 +290,7 @@
   const fadeTimers = new Map();
   let musicMode = 'menu';
   let musicMuted = localStorage.getItem(MUSIC_KEY) === '1';
+  let musicStarted = false;
   Object.values(musicTracks).forEach(track=>{track.loop=true;track.preload='auto';track.volume=0});
 
   function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',mission:null,step:0,used:[],discoveries:0,journal:[],active:false,lastEffects:{},eventResolved:false}; }
@@ -309,17 +310,17 @@
     fadeTimers.set(track,timer);
   }
   function syncMusicButton(){
-    ui.musicToggle.classList.toggle('muted',musicMuted);ui.musicToggle.textContent=musicMuted?'♪':'♫';ui.musicToggle.setAttribute('aria-pressed',String(!musicMuted));ui.musicToggle.setAttribute('aria-label',musicMuted?'Включить музыку':'Выключить музыку');
+    const playing=!musicMuted&&musicStarted;ui.musicToggle.classList.toggle('muted',!playing);ui.musicToggle.textContent=playing?'♫':'♪';ui.musicToggle.setAttribute('aria-pressed',String(playing));ui.musicToggle.setAttribute('aria-label',playing?'Выключить музыку':'Включить музыку');
   }
   function switchMusic(mode,duration=1100){
     musicMode=mode;if(musicMuted)return;
     const target=musicTracks[mode];
     Object.entries(musicTracks).forEach(([name,track])=>{if(name!==mode&&!track.paused)fadeTrack(track,0,duration,()=>{if(musicMode!==name){track.pause();track.currentTime=0}})});
-    target.play().then(()=>fadeTrack(target,musicLevels[mode],duration)).catch(()=>{});
+    target.play().then(()=>{musicStarted=true;syncMusicButton();fadeTrack(target,musicLevels[mode],duration)}).catch(()=>{musicStarted=false;syncMusicButton()});
   }
   function toggleMusic(){
-    musicMuted=!musicMuted;localStorage.setItem(MUSIC_KEY,musicMuted?'1':'0');syncMusicButton();
-    if(musicMuted)Object.values(musicTracks).forEach(track=>fadeTrack(track,0,350,()=>track.pause()));else switchMusic(musicMode,550);
+    if(musicMuted||!musicStarted){musicMuted=false;localStorage.setItem(MUSIC_KEY,'0');switchMusic(musicMode,550);return}
+    musicMuted=true;localStorage.setItem(MUSIC_KEY,'1');syncMusicButton();Object.values(musicTracks).forEach(track=>fadeTrack(track,0,350,()=>track.pause()));
   }
 
   function renderMissions(){
@@ -440,7 +441,7 @@
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
   ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',returnToBase);
   document.querySelectorAll('[data-speed]').forEach(btn=>btn.addEventListener('click',()=>setSpeed(btn.dataset.speed)));
-  window.addEventListener('resize',resize);window.addEventListener('pointerdown',()=>{initAudio();switchMusic(musicMode,600)},{once:true});
+  window.addEventListener('resize',resize);window.addEventListener('pointerdown',initAudio,{once:true});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  syncMusicButton();switchMusic('menu',1300);resize();renderMissions();updateHud();requestAnimationFrame(frame);
+  syncMusicButton();resize();renderMissions();updateHud();requestAnimationFrame(frame);
 })();

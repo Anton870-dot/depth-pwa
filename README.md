@@ -49,4 +49,4 @@ node dev-server.js
 
 После этого игра доступна по адресу `http://127.0.0.1:8765/`.
 
-Для GitHub Pages загрузите все файлы из этой папки в корень репозитория. В версии v17 используются `styles.css?v=17-music`, `app.js?v=17-music` и кэш `pelagial-v17-music`.
+Для GitHub Pages загрузите все файлы из этой папки в корень репозитория, обязательно вместе со всей папкой `assets`. В версии v17 используются `styles.css?v=17-media-fix`, `app.js?v=17-media-fix` и кэш `pelagial-v17-media-fix`.

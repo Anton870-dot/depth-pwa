@@ -1,4 +1,4 @@
-const CACHE = 'pelagial-v17-music';
+const CACHE = 'pelagial-v17-media-fix';
 const FILES = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg', './assets/menu-nereida-v1.png', './assets/europa-awaits.mp3', './assets/beneath-europa.mp3'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
