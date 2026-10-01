@@ -437,7 +437,7 @@
   let state = freshState();
   let currentEvent = null;
   let audio = null;
-  const MUSIC_KEY = 'pelagial-music-muted';
+  const MUSIC_KEY = 'pelagial-music-muted-v2';
   const musicTracks = {
     menu: new Audio('assets/europa-awaits.mp3'),
     game: new Audio('assets/beneath-europa.mp3')
@@ -447,6 +447,8 @@
   let musicMode = 'menu';
   let musicMuted = localStorage.getItem(MUSIC_KEY) === '1';
   let musicStarted = false;
+  let autoplayPending = false;
+  let resumeAfterBackground = false;
   Object.values(musicTracks).forEach(track=>{track.loop=true;track.preload='auto';track.volume=0});
 
   function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
@@ -472,11 +474,19 @@
     musicMode=mode;if(musicMuted)return;
     const target=musicTracks[mode];
     Object.entries(musicTracks).forEach(([name,track])=>{if(name!==mode&&!track.paused)fadeTrack(track,0,duration,()=>{if(musicMode!==name){track.pause();track.currentTime=0}})});
-    target.play().then(()=>{musicStarted=true;syncMusicButton();fadeTrack(target,musicLevels[mode],duration)}).catch(()=>{musicStarted=false;syncMusicButton()});
+    target.play().then(()=>{autoplayPending=false;musicStarted=true;syncMusicButton();fadeTrack(target,musicLevels[mode],duration)}).catch(()=>{autoplayPending=true;musicStarted=false;syncMusicButton()});
   }
+  function unlockAudio(){
+    initAudio();if(audio&&audio.state==='suspended')audio.resume().catch(()=>{});
+    if(!musicMuted&&(autoplayPending||!musicStarted)&&!document.hidden)switchMusic(musicMode,450);
+  }
+  function pauseForBackground(){
+    resumeAfterBackground=resumeAfterBackground||(!musicMuted&&(musicStarted||autoplayPending));Object.values(musicTracks).forEach(track=>{clearInterval(fadeTimers.get(track));fadeTimers.delete(track);track.pause()});musicStarted=false;syncMusicButton();
+  }
+  function resumeFromBackground(){if(resumeAfterBackground&&!musicMuted){resumeAfterBackground=false;switchMusic(musicMode,450)}}
   function toggleMusic(){
     if(musicMuted||!musicStarted){musicMuted=false;localStorage.setItem(MUSIC_KEY,'0');switchMusic(musicMode,550);return}
-    musicMuted=true;localStorage.setItem(MUSIC_KEY,'1');syncMusicButton();Object.values(musicTracks).forEach(track=>fadeTrack(track,0,350,()=>track.pause()));
+    musicMuted=true;autoplayPending=false;resumeAfterBackground=false;localStorage.setItem(MUSIC_KEY,'1');syncMusicButton();Object.values(musicTracks).forEach(track=>fadeTrack(track,0,350,()=>track.pause()));
   }
 
   function startNewGame(){
@@ -595,7 +605,9 @@
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
   ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',startNewGame);
   document.querySelectorAll('[data-speed]').forEach(btn=>btn.addEventListener('click',()=>setSpeed(btn.dataset.speed)));
-  window.addEventListener('resize',resize);window.addEventListener('pointerdown',initAudio,{once:true});
+  window.addEventListener('resize',resize);window.addEventListener('pointerdown',unlockAudio,{once:true});window.addEventListener('keydown',unlockAudio,{once:true});
+  document.addEventListener('visibilitychange',()=>document.hidden?pauseForBackground():resumeFromBackground());
+  window.addEventListener('pagehide',pauseForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeFromBackground()});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  syncMusicButton();resize();updateHud();requestAnimationFrame(frame);
+  syncMusicButton();switchMusic('menu',1400);resize();updateHud();requestAnimationFrame(frame);
 })();
