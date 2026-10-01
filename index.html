@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#061019">
-  <meta name="description" content="Подо льдом — сюжетная экспедиция в океане Европы">
-  <title>Подо льдом: Европа</title>
+  <meta name="description" content="Пелагиаль забвения — сюжетная подлёдная экспедиция">
+  <title>Пелагиаль забвения</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=17-events">
+  <link rel="stylesheet" href="styles.css?v=17-title">
 </head>
 <body>
   <main id="game">
     <canvas id="ocean" aria-hidden="true"></canvas>
 
     <header class="topbar glass">
-      <div class="brand"><i>◉</i><div><b>ПОДО ЛЬДОМ</b><small>ОКЕАН ЕВРОПЫ · ЭКСПЕДИЦИЯ «НЕРЕИДА»</small></div></div>
+      <div class="brand"><i>◉</i><div><b>ПЕЛАГИАЛЬ ЗАБВЕНИЯ</b><small>НАУЧНАЯ ЭКСПЕДИЦИЯ · НИО-17</small></div></div>
       <div class="depth"><small id="zoneName">ВЕРХНИЙ ОКЕАН</small><strong><span id="depthValue">2 140</span> м</strong></div>
     </header>
 
@@ -94,12 +94,15 @@
 
     <div id="intro" class="overlay visible">
       <section class="dialog intro-dialog">
-        <div class="eyebrow">ЕВРОПА · 13,4 А.Е. ОТ ЗЕМЛИ</div>
-        <h1>ПОДО ЛЬДОМ</h1>
-        <p>Под одиннадцатью километрами льда лежит океан, которого никто не видел. Исследовательская подлодка «Нереида» отправляется туда, откуда перестали возвращаться сигналы.</p>
-        <div class="simple-rules"><span><b>01</b> Выберите экспедицию</span><span><b>02</b> Принимайте решения в пути</span><span><b>03</b> Вернитесь с открытием</span></div>
-        <button id="startBtn" class="primary-btn">ОТКРЫТЬ ЖУРНАЛ ЭКСПЕДИЦИЙ</button>
-        <small id="saveNote">Прогресс сохраняется на устройстве</small>
+        <header class="menu-heading">
+          <h1>ПЕЛАГИАЛЬ <span>ЗАБВЕНИЯ</span></h1>
+        </header>
+        <div class="menu-launch">
+          <div class="menu-vessel"><span>НИО-17</span><b>«НЕРЕИДА»</b><small>ИССЛЕДОВАТЕЛЬСКАЯ ЭКСПЕДИЦИЯ</small></div>
+          <div class="menu-meta"><span>45 СОБЫТИЙ</span><i></i><span>4 ЭКСПЕДИЦИИ</span><i></i><span>АВТОСОХРАНЕНИЕ</span></div>
+          <button id="startBtn" class="primary-btn">НАЧАТЬ ЭКСПЕДИЦИЮ <span>→</span></button>
+          <small id="saveNote">Станция «Галилей» · канал связи установлен</small>
+        </div>
       </section>
     </div>
 
@@ -138,6 +141,6 @@
       </section>
     </div>
   </main>
-  <script src="app.js?v=17-events"></script>
+  <script src="app.js?v=17-title"></script>
 </body>
 </html>
