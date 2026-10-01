@@ -5,8 +5,11 @@ body{overflow-x:hidden}
 button{font:inherit}
 #game{position:relative;min-height:100vh;padding:max(12px,env(safe-area-inset-top)) 12px max(22px,env(safe-area-inset-bottom));overflow:hidden;background:radial-gradient(circle at 50% 20%,rgba(18,84,104,.25),transparent 35%)}
 #ocean{position:fixed;inset:0;width:100%;height:100%;opacity:.7;pointer-events:none}
+.music-toggle{position:fixed;z-index:80;top:max(12px,env(safe-area-inset-top));right:12px;width:34px;height:34px;padding:0;border:1px solid rgba(102,232,243,.34);border-radius:50%;color:var(--cyan);background:rgba(3,14,22,.72);box-shadow:0 5px 20px rgba(0,0,0,.38),inset 0 0 16px rgba(102,232,243,.06);backdrop-filter:blur(9px);font-size:16px;line-height:1;cursor:pointer;transition:.25s}
+.music-toggle:hover{border-color:var(--cyan);box-shadow:0 5px 22px rgba(0,0,0,.45),0 0 15px rgba(102,232,243,.15)}
+.music-toggle.muted{color:#58737a;border-color:rgba(102,232,243,.14);box-shadow:none}
 .glass{position:relative;z-index:2;border:1px solid var(--line);background:linear-gradient(145deg,rgba(8,29,40,.9),rgba(2,11,18,.92));box-shadow:0 12px 32px rgba(0,0,0,.35),inset 0 1px rgba(255,255,255,.025);backdrop-filter:blur(12px)}
-.topbar{height:58px;max-width:1100px;margin:0 auto 8px;padding:9px 13px;display:flex;align-items:center;justify-content:space-between;border-radius:15px}
+.topbar{height:58px;max-width:1100px;margin:0 auto 8px;padding:9px 55px 9px 13px;display:flex;align-items:center;justify-content:space-between;border-radius:15px}
 .brand{display:flex;align-items:center;gap:9px}.brand>i{display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(102,232,243,.3);border-radius:50%;color:var(--cyan);font-style:normal;box-shadow:0 0 18px rgba(102,232,243,.16)}
 .brand b,.brand small,.depth small,.depth strong{display:block}.brand b{font-size:12px;letter-spacing:.18em}.brand small{margin-top:2px;color:#668992;font-size:6px;letter-spacing:.13em}
 .depth{text-align:right}.depth small{color:#6b9099;font-size:6px;letter-spacing:.14em}.depth strong{margin-top:2px;color:var(--cyan);font-size:15px}

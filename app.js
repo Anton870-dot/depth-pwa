@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const clamp = (n, min = 0, max = 100) => Math.max(min, Math.min(max, n));
   const ui = {
-    ocean: $('ocean'), sonar: $('sonar'), intro: $('intro'), start: $('startBtn'),
+    ocean: $('ocean'), sonar: $('sonar'), intro: $('intro'), start: $('startBtn'), musicToggle: $('musicToggle'),
     missions: $('missionsOverlay'), missionsBtn: $('missionsBtn'), closeMissions: $('closeMissions'), missionList: $('missionList'),
     journal: $('journalOverlay'), journalBtn: $('journalBtn'), closeJournal: $('closeJournal'), journalEntries: $('journalEntries'),
     event: $('eventOverlay'), eventType: $('eventType'), eventTitle: $('eventTitle'), eventText: $('eventText'), eventQuote: $('eventQuote'),
@@ -281,6 +281,16 @@
   let state = freshState();
   let currentEvent = null;
   let audio = null;
+  const MUSIC_KEY = 'pelagial-music-muted';
+  const musicTracks = {
+    menu: new Audio('assets/europa-awaits.mp3'),
+    game: new Audio('assets/beneath-europa.mp3')
+  };
+  const musicLevels = {menu:.24,game:.18};
+  const fadeTimers = new Map();
+  let musicMode = 'menu';
+  let musicMuted = localStorage.getItem(MUSIC_KEY) === '1';
+  Object.values(musicTracks).forEach(track=>{track.loop=true;track.preload='auto';track.volume=0});
 
   function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',mission:null,step:0,used:[],discoveries:0,journal:[],active:false,lastEffects:{},eventResolved:false}; }
   function loadProfile(){
@@ -291,6 +301,26 @@
   function initAudio(){ if(audio)return;const AC=window.AudioContext||window.webkitAudioContext;if(AC)audio=new AC(); }
   function tone(freq=220,duration=.15,volume=.025,type='sine'){ if(!audio)return;const osc=audio.createOscillator(),gain=audio.createGain();osc.type=type;osc.frequency.value=freq;gain.gain.setValueAtTime(volume,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+duration);osc.connect(gain).connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration); }
   function deepPing(){tone(148,1.7,.025,'sine');setTimeout(()=>tone(224,.7,.012,'sine'),420)}
+  function fadeTrack(track,target,duration=900,done){
+    clearInterval(fadeTimers.get(track));
+    const from=track.volume,steps=24,delta=(target-from)/steps;let step=0;
+    if(duration<=0){track.volume=target;if(done)done();return}
+    const timer=setInterval(()=>{step++;track.volume=Math.max(0,Math.min(1,from+delta*step));if(step>=steps){clearInterval(timer);fadeTimers.delete(track);track.volume=target;if(done)done()}},duration/steps);
+    fadeTimers.set(track,timer);
+  }
+  function syncMusicButton(){
+    ui.musicToggle.classList.toggle('muted',musicMuted);ui.musicToggle.textContent=musicMuted?'♪':'♫';ui.musicToggle.setAttribute('aria-pressed',String(!musicMuted));ui.musicToggle.setAttribute('aria-label',musicMuted?'Включить музыку':'Выключить музыку');
+  }
+  function switchMusic(mode,duration=1100){
+    musicMode=mode;if(musicMuted)return;
+    const target=musicTracks[mode];
+    Object.entries(musicTracks).forEach(([name,track])=>{if(name!==mode&&!track.paused)fadeTrack(track,0,duration,()=>{if(musicMode!==name){track.pause();track.currentTime=0}})});
+    target.play().then(()=>fadeTrack(target,musicLevels[mode],duration)).catch(()=>{});
+  }
+  function toggleMusic(){
+    musicMuted=!musicMuted;localStorage.setItem(MUSIC_KEY,musicMuted?'1':'0');syncMusicButton();
+    if(musicMuted)Object.values(musicTracks).forEach(track=>fadeTrack(track,0,350,()=>track.pause()));else switchMusic(musicMode,550);
+  }
 
   function renderMissions(){
     ui.missionList.innerHTML=missions.map(m=>{
@@ -404,12 +434,13 @@
   }
   function frame(t){drawBackground(t);drawSonar(t);requestAnimationFrame(frame)}
 
-  ui.start.addEventListener('click',()=>{initAudio();ui.intro.classList.remove('visible');openMissions();deepPing()});
+  ui.start.addEventListener('click',()=>{initAudio();switchMusic('game');ui.intro.classList.remove('visible');openMissions();deepPing()});
+  ui.musicToggle.addEventListener('click',toggleMusic);
   ui.missionsBtn.addEventListener('click',openMissions);ui.closeMissions.addEventListener('click',closeMissions);
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
   ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',returnToBase);
   document.querySelectorAll('[data-speed]').forEach(btn=>btn.addEventListener('click',()=>setSpeed(btn.dataset.speed)));
-  window.addEventListener('resize',resize);window.addEventListener('pointerdown',initAudio,{once:true});
+  window.addEventListener('resize',resize);window.addEventListener('pointerdown',()=>{initAudio();switchMusic(musicMode,600)},{once:true});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  resize();renderMissions();updateHud();requestAnimationFrame(frame);
+  syncMusicButton();switchMusic('menu',1300);resize();renderMissions();updateHud();requestAnimationFrame(frame);
 })();
