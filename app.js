@@ -4,7 +4,6 @@
   const clamp = (n, min = 0, max = 100) => Math.max(min, Math.min(max, n));
   const ui = {
     ocean: $('ocean'), sonar: $('sonar'), intro: $('intro'), start: $('startBtn'), musicToggle: $('musicToggle'),
-    missions: $('missionsOverlay'), missionsBtn: $('missionsBtn'), closeMissions: $('closeMissions'), missionList: $('missionList'),
     journal: $('journalOverlay'), journalBtn: $('journalBtn'), closeJournal: $('closeJournal'), journalEntries: $('journalEntries'),
     event: $('eventOverlay'), eventType: $('eventType'), eventTitle: $('eventTitle'), eventText: $('eventText'), eventQuote: $('eventQuote'),
     eventGlyph: $('eventGlyph'), eventChoices: $('eventChoices'), eventResult: $('eventResult'), eventContinue: $('eventContinue'),
@@ -293,10 +292,10 @@
   let musicStarted = false;
   Object.values(musicTracks).forEach(track=>{track.loop=true;track.preload='auto';track.volume=0});
 
-  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',mission:null,step:0,used:[],discoveries:0,journal:[],active:false,lastEffects:{},eventResolved:false}; }
+  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
   function loadProfile(){
-    const empty={completed:[],totalDiscoveries:0,runs:0,recentEvents:[]};
-    try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];return saved}catch{return empty}
+    const empty={completed:[],totalDiscoveries:0,runs:0,recentEvents:[],wrecks:[],bestDepth:2140};
+    try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];if(!Array.isArray(saved.wrecks))saved.wrecks=[];return saved}catch{return empty}
   }
   function saveProfile(){ localStorage.setItem(SAVE_KEY,JSON.stringify(profile)); }
   function initAudio(){ if(audio)return;const AC=window.AudioContext||window.webkitAudioContext;if(AC)audio=new AC(); }
@@ -323,32 +322,24 @@
     musicMuted=true;localStorage.setItem(MUSIC_KEY,'1');syncMusicButton();Object.values(musicTracks).forEach(track=>fadeTrack(track,0,350,()=>track.pause()));
   }
 
-  function renderMissions(){
-    ui.missionList.innerHTML=missions.map(m=>{
-      const complete=profile.completed.includes(m.id),locked=m.locked&&profile.completed.length<m.locked;
-      return '<button class="mission-option '+(complete?'complete ':'')+(locked?'locked':'')+'" data-mission="'+m.id+'" '+(locked?'disabled':'')+'><span>'+m.glyph+'</span><small>'+(locked?'ОТКРОЕТСЯ ПОСЛЕ '+m.locked+' ЭКСПЕДИЦИЙ':m.danger)+'</small><b>'+m.title+'</b><p>'+m.objective+'</p><em>'+m.region+' · '+m.steps+' СОБЫТИЙ</em></button>';
-    }).join('');
-    ui.missionList.querySelectorAll('[data-mission]').forEach(btn=>btn.addEventListener('click',()=>startMission(btn.dataset.mission)));
-  }
-  function openMissions(){renderMissions();ui.missions.classList.add('visible');ui.closeMissions.style.display=state.active?'block':'none'}
-  function closeMissions(){ui.missions.classList.remove('visible')}
-  function startMission(id){
-    const mission=missions.find(m=>m.id===id);if(!mission)return;
-    state=freshState();state.mission=mission;state.active=true;
-    state.journal.push({type:'МАРШРУТ ПРОЛОЖЕН',title:mission.title,text:mission.objective});
-    closeMissions();updateHud();log('Автопилот проложил курс: '+mission.region+'. Ручное управление направлением не требуется.');
-    ui.commandTask.textContent='Курс проложен автоматически';ui.continueBtn.disabled=false;ui.continueHint.textContent='До следующего события';deepPing();
+  function startNewGame(){
+    ui.end.classList.remove('visible');ui.event.classList.remove('visible');state=freshState();state.active=true;profile.runs++;state.runId=profile.runs;saveProfile();
+    state.journal.push({type:'НОВОЕ ПОГРУЖЕНИЕ',title:'Выход со станции «Галилей»',text:'«Нереида» уходит в свободное погружение. Возвращение не гарантировано.'});
+    setContact(null);updateHud();log('Погружение №'+state.runId+' началось. Автопилот ведёт «Нереиду» всё глубже.');
+    ui.continueBtn.disabled=false;deepPing();
   }
   function travel(){
-    if(!state.active||!state.mission||ui.event.classList.contains('visible'))return;
+    if(!state.active||ui.event.classList.contains('visible'))return;
     initAudio();tone(82,.5,.018,'triangle');
     const costs={silent:{energy:-4,oxygen:-6,heat:-5},cruise:{energy:-7,oxygen:-5,heat:-2},full:{energy:-11,oxygen:-4,heat:7}}[state.speed];
     applyEffects(costs,false);if(state.speed==='full'&&Math.random()<.3)applyEffects({hull:-3},false);
-    state.step++;state.depth+=Math.sign(state.mission.depth-state.depth)*Math.min(Math.abs(state.mission.depth-state.depth),260+Math.random()*240);updateHud();
+    const descent={silent:[160,280],cruise:[260,440],full:[390,620]}[state.speed];state.step++;state.depth+=descent[0]+Math.random()*(descent[1]-descent[0]);profile.bestDepth=Math.max(profile.bestDepth||2140,Math.round(state.depth));saveProfile();updateHud();
     if(checkFailure())return;
-    showEvent(state.step>=state.mission.steps?finalEvents[state.mission.final]:pickEvent());
+    showEvent(pickEvent());
   }
   function pickEvent(){
+    const wreck=(profile.wrecks||[]).find(w=>!w.salvaged&&w.run!==state.runId&&state.depth>=w.depth-450);
+    if(wreck&&!state.encounteredWreck&&Math.random()<.35){state.encounteredWreck=true;return makeWreckEvent(wreck)}
     const recent=new Set(profile.recentEvents||[]);
     let pool=events.filter(e=>!state.used.includes(e.id)&&!recent.has(e.id));
     if(!pool.length)pool=events.filter(e=>!state.used.includes(e.id));
@@ -359,6 +350,14 @@
     saveProfile();
     return event;
   }
+  function makeWreckEvent(wreck){
+    const depth=Math.round(wreck.depth).toLocaleString('ru-RU');
+    return {id:'graveyard_'+wreck.id,type:'КЛАДБИЩЕ СУБМАРИН',glyph:'⌁',title:'Наша «Нереида»',text:'На глубине '+depth+' м прожекторы выхватывают знакомый силуэт. Это «Нереида» из погружения №'+wreck.run+'. Океан сохранил корпус там, где оборвалась прошлая игра.',quote:'Бортовой архив: «Идентификация подтверждена. Это были мы».',choices:[
+      choice('Снять бронепластины','Разобрать уцелевшие внешние секции корпуса.','Манипуляторы отделяют целые пластины. Старая «Нереида» защищает новую.',{hull:22,wreckId:wreck.id},'АВАРИЙНЫЙ РЕМОНТ'),
+      choice('Забрать аккумуляторы','Подключиться к герметичным кормовым блокам.','Несколько ячеек всё ещё держат заряд. Реактор получает драгоценный резерв.',{energy:28,wreckId:wreck.id},'ЗАПАС ЭНЕРГИИ'),
+      choice('Вскрыть склад снабжения','Извлечь кислородные кассеты и теплоизоляцию.','Склад пережил катастрофу. Воздух очищен, отсеки снова прогреваются.',{oxygen:24,heat:12,wreckId:wreck.id},'ЗАПАСЫ ЖИЗНЕОБЕСПЕЧЕНИЯ')
+    ]};
+  }
   function showEvent(event){
     currentEvent=event;state.eventResolved=false;ui.eventType.textContent=event.type;ui.eventTitle.textContent=event.title;ui.eventText.textContent=event.text;ui.eventQuote.textContent=event.quote||'';ui.eventGlyph.textContent=event.glyph;
     ui.eventResult.classList.remove('visible');ui.eventChoices.style.display='grid';
@@ -367,10 +366,10 @@
     ui.event.classList.add('visible');setContact(event);tone(event.type.includes('АВАР')?110:185,.7,.025,event.type.includes('АВАР')?'sawtooth':'sine');
   }
   function resolveChoice(index){
-    if(state.eventResolved)return;state.eventResolved=true;const c=currentEvent.choices[index];applyEffects(c.effects,true);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
+    if(state.eventResolved)return;state.eventResolved=true;const c=currentEvent.choices[index];if(c.effects.wreckId){const wreck=profile.wrecks.find(w=>w.id===c.effects.wreckId);if(wreck){wreck.salvaged=true;wreck.salvagedBy=state.runId;saveProfile()}}applyEffects(c.effects,true);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
     ui.eventResult.querySelector('.effects').innerHTML=formatEffects(c.effects);ui.eventResult.classList.add('visible');
     state.journal.unshift({type:currentEvent.type,title:currentEvent.title,text:c.title+'. '+c.result});if(state.journal.length>30)state.journal.length=30;
-    if(c.effects.complete)completeMission(c.result);updateHud();checkFailure();tone(c.effects.hull<0?96:360,.35,.02,c.effects.hull<0?'sawtooth':'triangle');
+    updateHud();checkFailure();tone(c.effects.hull<0?96:360,.35,.02,c.effects.hull<0?'sawtooth':'triangle');
   }
   function formatEffects(effects){
     const names={hull:'корпус',energy:'энергия',oxygen:'кислород',heat:'тепло',discovery:'открытие'};
@@ -382,19 +381,18 @@
     if(effects.discovery){state.discoveries=Math.max(0,state.discoveries+effects.discovery);profile.totalDiscoveries=Math.max(0,profile.totalDiscoveries+effects.discovery);saveProfile()}
     state.lastEffects=effects;if(visual){ui.sub.classList.remove('warning');void ui.sub.offsetWidth;ui.sub.classList.add('warning')}
   }
-  function completeMission(result){
-    const id=state.mission.id;if(!profile.completed.includes(id))profile.completed.push(id);profile.runs++;saveProfile();state.completedResult=result;ui.eventContinue.textContent='ЗАВЕРШИТЬ ЭКСПЕДИЦИЮ';
+  function closeEvent(){ui.event.classList.remove('visible');ui.eventContinue.textContent='ПРОДОЛЖИТЬ';setContact(null);updateHud()}
+  function recordWreck(reason){
+    if(state.wreckRecorded)return;state.wreckRecorded=true;profile.wrecks.unshift({id:'wreck-'+Date.now(),run:state.runId,depth:Math.round(state.depth),reason,step:state.step,salvaged:false});profile.wrecks=profile.wrecks.slice(0,12);saveProfile();
   }
-  function closeEvent(){ui.event.classList.remove('visible');ui.eventContinue.textContent='ПРОДОЛЖИТЬ';if(state.completedResult){showEnd(true);return}setContact(null);updateHud()}
   function checkFailure(){
     let reason='';if(state.hull<=0)reason='Корпус «Нереиды» не выдержал давления океана.';else if(state.oxygen<=0)reason='Последний запас кислорода исчерпан вдали от станции.';else if(state.heat<=0)reason='Реактор остановлен. Лёд медленно сковал все отсеки.';else if(state.heat>=100)reason='Первый контур разрушен перегревом.';else if(state.energy<=0)reason='Без энергии лодка легла на дно и перестала отвечать.';
-    if(!reason)return false;ui.event.classList.remove('visible');state.active=false;showEnd(false,reason);return true;
+    if(!reason)return false;ui.event.classList.remove('visible');state.active=false;recordWreck(reason);showEnd(reason);return true;
   }
-  function showEnd(success,reason=''){
-    ui.endEyebrow.textContent=success?'ЭКСПЕДИЦИЯ ЗАВЕРШЕНА':'СВЯЗЬ ПОТЕРЯНА';ui.endTitle.textContent=success?'«Нереида» возвращается к свету':'Океан сохранил свою тайну';
-    ui.endText.textContent=success?state.completedResult+' Собрано открытий: '+state.discoveries+'. На станции уже готовят следующую экспедицию.':reason;ui.end.classList.add('visible');
+  function showEnd(reason){
+    ui.endEyebrow.textContent='ПОГРУЖЕНИЕ №'+state.runId+' ЗАВЕРШЕНО';ui.endTitle.textContent='Океан запомнил «Нереиду»';
+    ui.endText.textContent=reason+' Глубина гибели: '+Math.round(state.depth).toLocaleString('ru-RU')+' м. В следующей игре этот корпус может снова появиться на дне — и отдать новой лодке уцелевшие запасы.';ui.end.classList.add('visible');
   }
-  function returnToBase(){ui.end.classList.remove('visible');state=freshState();updateHud();renderMissions();openMissions();log('«Нереида» восстановлена и готова к новому погружению.')}
   function setSpeed(speed){
     state.speed=speed;document.querySelectorAll('[data-speed]').forEach(b=>b.classList.toggle('active',b.dataset.speed===speed));
     const copy={silent:'Тихий ход: меньше риска, больше расход кислорода.',cruise:'Крейсерский ход: сбалансированный режим.',full:'Полный ход: высокая нагрузка на реактор.'};log(copy[speed]);updateHud();tone(speed==='full'?180:260,.15,.015,'triangle');
@@ -407,16 +405,16 @@
     const set=(text,bar,value)=>{text.textContent=Math.round(value)+'%';bar.style.width=clamp(value)+'%'};
     set(ui.hullText,ui.hullBar,state.hull);set(ui.energyText,ui.energyBar,state.energy);set(ui.oxygenText,ui.oxygenBar,state.oxygen);set(ui.heatText,ui.heatBar,state.heat);
     ui.depth.textContent=Math.round(state.depth).toLocaleString('ru-RU');ui.zone.textContent=state.depth<3000?'ВЕРХНИЙ ОКЕАН':state.depth<5500?'СУМЕРЕЧНЫЙ СЛОЙ':state.depth<8000?'ТЁМНАЯ РАВНИНА':'АБИССАЛЬ';
-    if(state.mission){
-      const pct=clamp(state.step/state.mission.steps*100);ui.missionTitle.textContent=state.mission.title;ui.missionObjective.textContent=state.mission.objective;ui.routeProgress.style.width=pct+'%';ui.routeText.textContent=state.step>=state.mission.steps?'ЦЕЛЬ ДОСТИГНУТА':Math.round(pct)+'% МАРШРУТА · '+state.mission.region;ui.continueBtn.disabled=!state.active;ui.continueHint.textContent='участок '+Math.min(state.step+1,state.mission.steps)+' из '+state.mission.steps;ui.commandTask.textContent=state.step?'Автопилот · участок '+state.step+'/'+state.mission.steps:'Курс проложен автоматически';
-    }else{ui.missionTitle.textContent='Ожидание маршрута';ui.missionObjective.textContent='Выберите миссию в журнале экспедиций.';ui.routeProgress.style.width='0%';ui.routeText.textContent='БАЗА «ГАЛИЛЕЙ»';ui.continueBtn.disabled=true;ui.continueHint.textContent='Сначала выберите миссию'}
+    if(state.active){
+      const pct=clamp((state.depth-2140)/78.6);ui.missionTitle.textContent='Погружение №'+state.runId;ui.missionObjective.textContent='Свободная экспедиция. Каждое решение может открыть тайну — или оставить новый корпус на дне.';ui.routeProgress.style.width=pct+'%';ui.routeText.textContent=Math.round(state.depth).toLocaleString('ru-RU')+' М · СОБЫТИЙ: '+state.step+' · РЕКОРД: '+Math.round(profile.bestDepth||state.depth).toLocaleString('ru-RU')+' М';ui.continueBtn.disabled=false;ui.continueHint.textContent='следующее событие';ui.commandTask.textContent=state.step?'Автопилот · погружение '+state.step:'Свободное погружение';
+    }else{ui.missionTitle.textContent='Погружение не начато';ui.missionObjective.textContent='Начните новую игру и узнайте, что ждёт «Нереиду» в глубине.';ui.routeProgress.style.width='0%';ui.routeText.textContent='БАЗА «ГАЛИЛЕЙ» · КОРПУСОВ НА ДНЕ: '+(profile.wrecks||[]).filter(w=>!w.salvaged).length;ui.continueBtn.disabled=true;ui.continueHint.textContent='Сначала начните новую игру'}
     ui.reactorTask.textContent=state.heat>82?'Опасный перегрев':state.energy<25?'Экономичный режим':'Номинальная мощность';ui.labTask.textContent=state.discoveries?'Открытий: '+state.discoveries:'Контейнеры пусты';ui.ambient.textContent='Лёд над корпусом: '+Math.max(2.1,13.5-state.depth/520).toFixed(1).replace('.',',')+' км';
     const bad=Math.min(state.hull,state.energy,state.oxygen),heatBad=state.heat<18||state.heat>88;ui.shipStatus.textContent=bad<25||heatBad?'КРИТИЧЕСКОЕ СОСТОЯНИЕ':bad<55?'ТРЕБУЕТСЯ ВНИМАНИЕ':'СИСТЕМЫ В НОРМЕ';ui.shipStatus.style.color=bad<25||heatBad?'var(--red)':bad<55?'var(--amber)':'var(--green)';
     ui.sub.classList.toggle('damage-leak',state.hull<72);ui.sub.classList.toggle('damage-spark',state.energy<42);ui.sub.classList.toggle('damage-fire',state.heat>82);ui.sub.classList.toggle('blackout',state.energy<22);ui.sub.classList.toggle('flooded',state.hull<38);
   }
   function log(text){ui.log.textContent=text}
   function renderJournal(){
-    if(!state.journal.length)ui.journalEntries.innerHTML='<article class="journal-entry"><small>АРХИВ ПУСТ</small><b>История ещё не началась</b><p>Выберите экспедицию. Каждое принятое решение будет сохранено здесь.</p></article>';
+    if(!state.journal.length)ui.journalEntries.innerHTML='<article class="journal-entry"><small>АРХИВ ПУСТ</small><b>История ещё не началась</b><p>Начните новую игру. Каждое принятое решение будет сохранено здесь.</p></article>';
     else ui.journalEntries.innerHTML=state.journal.map((e,i)=>'<article class="journal-entry"><small>ЗАПИСЬ '+String(state.journal.length-i).padStart(2,'0')+' · '+e.type+'</small><b>'+e.title+'</b><p>'+e.text+'</p></article>').join('');
   }
 
@@ -435,13 +433,12 @@
   }
   function frame(t){drawBackground(t);drawSonar(t);requestAnimationFrame(frame)}
 
-  ui.start.addEventListener('click',()=>{initAudio();switchMusic('game');ui.intro.classList.remove('visible');openMissions();deepPing()});
+  ui.start.addEventListener('click',()=>{initAudio();switchMusic('game');ui.intro.classList.remove('visible');startNewGame()});
   ui.musicToggle.addEventListener('click',toggleMusic);
-  ui.missionsBtn.addEventListener('click',openMissions);ui.closeMissions.addEventListener('click',closeMissions);
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
-  ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',returnToBase);
+  ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',startNewGame);
   document.querySelectorAll('[data-speed]').forEach(btn=>btn.addEventListener('click',()=>setSpeed(btn.dataset.speed)));
   window.addEventListener('resize',resize);window.addEventListener('pointerdown',initAudio,{once:true});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  syncMusicButton();resize();renderMissions();updateHud();requestAnimationFrame(frame);
+  syncMusicButton();resize();updateHud();requestAnimationFrame(frame);
 })();
