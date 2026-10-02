@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#03121d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Пелагиаль">
+  <title>Установка · Пелагиаль забвения</title>
+  <link rel="manifest" href="pelagial.webmanifest?v=30-clean-install">
+  <link rel="icon" href="app-icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="app-icon-180.png">
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#020910;color:#dcebed;font-family:Segoe UI,Arial,sans-serif}body{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 16%,#0b4052,transparent 36%),#020910}.card{width:min(430px,100%);padding:24px;border:1px solid rgba(102,232,243,.25);border-radius:24px;background:rgba(4,18,28,.94);box-shadow:0 28px 90px #000;text-align:center}.icon{width:124px;height:124px;border-radius:28px;box-shadow:0 14px 44px #000,0 0 28px rgba(102,232,243,.16)}small{display:block;margin-top:18px;color:#66e8f3;font-size:10px;letter-spacing:.18em}h1{margin:8px 0 12px;font-size:25px;letter-spacing:.08em}p{margin:0 0 18px;color:#8eabb2;font-size:14px;line-height:1.55}button,a{display:block;width:100%;padding:14px;border-radius:12px;font:700 12px Segoe UI,Arial,sans-serif;letter-spacing:.1em;text-decoration:none;cursor:pointer}.install{border:1px solid #ffc867;color:#201603;background:linear-gradient(#ffd77f,#e7aa41)}.open{margin-top:10px;border:1px solid rgba(102,232,243,.3);color:#9ed6dc;background:rgba(102,232,243,.06)}#status{min-height:36px;margin-top:15px;color:#6f9199;font-size:11px;line-height:1.45}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <img class="icon" src="app-icon-192.png" alt="Иконка игры">
+    <small>НАУЧНАЯ ЭКСПЕДИЦИЯ · НИО-17</small>
+    <h1>Пелагиаль забвения</h1>
+    <p>Чистая установка без старого кэша. Откройте эту страницу в Chrome и нажмите кнопку ниже.</p>
+    <button id="installBtn" class="install" type="button">УСТАНОВИТЬ ПРИЛОЖЕНИЕ</button>
+    <a class="open" href="index.html?v=30-clean-install">ОТКРЫТЬ ИГРУ БЕЗ УСТАНОВКИ</a>
+    <div id="status">Подготовка установщика…</div>
+  </main>
+  <script>
+    const button=document.getElementById('installBtn'),status=document.getElementById('status');
+    let installPrompt=null;
+    if('serviceWorker' in navigator)navigator.serviceWorker.register('./pelagial-worker.js').then(()=>navigator.serviceWorker.ready).then(()=>{status.textContent='Установщик готов. Если кнопка не сработает, откройте меню Chrome → «Установить приложение».'}).catch(()=>{status.textContent='Откройте меню Chrome → «Установить приложение».'});
+    window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;button.disabled=false;status.textContent='Приложение готово к установке.'});
+    window.addEventListener('appinstalled',()=>{installPrompt=null;button.disabled=true;button.textContent='ПРИЛОЖЕНИЕ УСТАНОВЛЕНО';status.textContent='Иконка появится в списке приложений.'});
+    button.addEventListener('click',async()=>{if(!installPrompt){status.textContent='Откройте меню Chrome ⋮ и выберите «Установить приложение». Если там ещё старый статус, закройте Chrome и откройте эту ссылку заново.';return}installPrompt.prompt();const choice=await installPrompt.userChoice;if(choice.outcome!=='accepted')status.textContent='Установка не была подтверждена.';installPrompt=null});
+  </script>
+</body>
+</html>

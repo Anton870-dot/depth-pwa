@@ -745,6 +745,6 @@
   window.addEventListener('resize',resize);window.addEventListener('pointerdown',unlockAudio,{once:true});window.addEventListener('keydown',unlockAudio,{once:true});
   document.addEventListener('visibilitychange',()=>document.hidden?pauseForBackground():resumeFromBackground());
   window.addEventListener('pagehide',pauseForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeFromBackground()});
-  if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  if('serviceWorker'in navigator)navigator.serviceWorker.register('./pelagial-worker.js').catch(()=>{});
   installAppShellGuards();syncMusicButton();switchMusic('menu',1400);resize();renderCargo();updateArchiveBadges();updateHud();requestAnimationFrame(frame);
 })();
