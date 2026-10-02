@@ -8,7 +8,7 @@
   <title>Пелагиаль забвения</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=24-major">
+  <link rel="stylesheet" href="styles.css?v=25-science">
 </head>
 <body>
   <main id="game">
@@ -30,7 +30,7 @@
     <section class="mission-card glass">
       <div><small>ТЕКУЩЕЕ ПОГРУЖЕНИЕ</small><h2 id="missionTitle">Погружение не начато</h2><p id="missionObjective">Начните новую игру и узнайте, что ждёт «Нереиду» в глубине.</p></div>
       <div class="route-progress"><i><em id="routeProgress"></em></i><span id="routeText">БАЗА «ГАЛИЛЕЙ»</span></div>
-      <div class="mission-actions"><button id="cargoBtn" class="small-btn cargo-button" disabled>ГРУЗ <b id="cargoCount">0/6</b></button><button id="journalBtn" class="small-btn">ЖУРНАЛ</button></div>
+      <div class="mission-actions"><button id="archiveBtn" class="small-btn archive-button">АРХИВ <b id="archiveCount">0</b></button><button id="cargoBtn" class="small-btn cargo-button" disabled>ГРУЗ <b id="cargoCount">0/6</b></button><button id="journalBtn" class="small-btn">ЖУРНАЛ</button></div>
     </section>
 
     <section class="interior glass" aria-label="Интерьер подлодки Нереида">
@@ -107,6 +107,7 @@
           <div class="menu-vessel"><span>НИО-17</span><b>«НЕРЕИДА»</b><small>ИССЛЕДОВАТЕЛЬСКАЯ ЭКСПЕДИЦИЯ</small></div>
           <div class="menu-meta"><span>295+ СОБЫТИЙ</span><i></i><span>ОДНА ЖИЗНЬ</span><i></i><span>КЛАДБИЩЕ СУБМАРИН</span></div>
           <button id="startBtn" class="primary-btn">НОВАЯ ИГРА <span>→</span></button>
+          <button id="menuArchiveBtn" class="menu-archive-btn">НАУЧНЫЙ АРХИВ <b id="menuArchiveCount">0</b></button>
           <small id="saveNote">Станция «Галилей» · канал связи установлен</small>
         </div>
       </section>
@@ -125,6 +126,19 @@
       </section>
     </div>
 
+    <div id="zoneOverlay" class="overlay zone-overlay" role="dialog" aria-modal="true" aria-labelledby="zoneTitle">
+      <section class="dialog zone-dialog">
+        <div class="zone-visual"><div id="zoneGlyph">I</div><i></i><i></i><i></i></div>
+        <div id="zoneCode" class="eyebrow">ЗОНА I</div>
+        <h2 id="zoneTitle">ПОДЛЁДНЫЙ ШЕЛЬФ</h2>
+        <b id="zoneSubtitle" class="zone-subtitle">Граница человеческого присутствия</b>
+        <p id="zoneDescription"></p>
+        <div id="zonePhenomena" class="zone-phenomena"></div>
+        <div class="zone-risk"><span>ОЦЕНКА ЭКСПЕДИЦИИ</span><b id="zoneRisk">УМЕРЕННЫЙ РИСК</b></div>
+        <button id="zoneContinue" class="primary-btn">ПРОДОЛЖИТЬ ПОГРУЖЕНИЕ</button>
+      </section>
+    </div>
+
     <div id="journalOverlay" class="overlay journal-overlay">
       <section class="dialog journal-dialog">
         <header><div><div class="eyebrow">ПАМЯТЬ «НЕРЕИДЫ»</div><h2>КАПИТАНСКИЙ ЖУРНАЛ</h2></div><button id="closeJournal" class="close-btn">×</button></header>
@@ -140,6 +154,15 @@
       </section>
     </div>
 
+    <div id="archiveOverlay" class="overlay archive-overlay" role="dialog" aria-modal="true" aria-labelledby="archiveTitle">
+      <section class="dialog archive-dialog">
+        <header><div><div class="eyebrow">НАУЧНАЯ БАЗА ДАННЫХ · НИО-17</div><h2 id="archiveTitle">АРХИВ ОТКРЫТИЙ</h2></div><button id="closeArchive" class="close-btn" aria-label="Закрыть">×</button></header>
+        <div class="archive-overview"><div><strong id="archiveTotal">0</strong><span>ЗАПИСЕЙ</span></div><p>Каждое подтверждённое наблюдение сохраняется между экспедициями. Альтернативные решения могут открыть другие сведения об одном феномене.</p></div>
+        <div id="archiveFilters" class="archive-filters"></div>
+        <div id="archiveEntries" class="archive-entries"></div>
+      </section>
+    </div>
+
     <div id="endOverlay" class="overlay end-overlay">
       <section class="dialog end-dialog">
         <div class="eyebrow" id="endEyebrow">СВЯЗЬ ПОТЕРЯНА</div>
@@ -148,9 +171,10 @@
       </section>
     </div>
   </main>
-  <script src="events-pack-2.js?v=24-major"></script>
-  <script src="events-pack-3.js?v=24-major"></script>
-  <script src="major-scenes.js?v=24-major"></script>
-  <script src="app.js?v=24-major"></script>
+  <script src="events-pack-2.js?v=25-science"></script>
+  <script src="events-pack-3.js?v=25-science"></script>
+  <script src="major-scenes.js?v=25-science"></script>
+  <script src="science-data.js?v=25-science"></script>
+  <script src="app.js?v=25-science"></script>
 </body>
 </html>

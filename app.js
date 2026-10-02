@@ -6,6 +6,8 @@
     ocean: $('ocean'), sonar: $('sonar'), intro: $('intro'), start: $('startBtn'), musicToggle: $('musicToggle'),
     journal: $('journalOverlay'), journalBtn: $('journalBtn'), closeJournal: $('closeJournal'), journalEntries: $('journalEntries'),
     cargo: $('cargoOverlay'), cargoBtn: $('cargoBtn'), cargoCount: $('cargoCount'), closeCargo: $('closeCargo'), cargoSlots: $('cargoSlots'), cargoStatus: $('cargoStatus'),
+    archive: $('archiveOverlay'), archiveBtn: $('archiveBtn'), archiveCount: $('archiveCount'), menuArchiveBtn: $('menuArchiveBtn'), menuArchiveCount: $('menuArchiveCount'), closeArchive: $('closeArchive'), archiveTotal: $('archiveTotal'), archiveFilters: $('archiveFilters'), archiveEntries: $('archiveEntries'), saveNote: $('saveNote'),
+    zoneOverlay: $('zoneOverlay'), zoneCode: $('zoneCode'), zoneGlyph: $('zoneGlyph'), zoneTitle: $('zoneTitle'), zoneSubtitle: $('zoneSubtitle'), zoneDescription: $('zoneDescription'), zonePhenomena: $('zonePhenomena'), zoneRisk: $('zoneRisk'), zoneContinue: $('zoneContinue'),
     event: $('eventOverlay'), eventType: $('eventType'), eventTitle: $('eventTitle'), eventText: $('eventText'), eventQuote: $('eventQuote'),
     eventGlyph: $('eventGlyph'), eventSequence: $('eventSequence'), eventChoices: $('eventChoices'), eventResult: $('eventResult'), eventContinue: $('eventContinue'),
     end: $('endOverlay'), endEyebrow: $('endEyebrow'), endTitle: $('endTitle'), endText: $('endText'), endBtn: $('endBtn'),
@@ -449,10 +451,13 @@
     ancient_module:{id:'ancient_module',glyph:'◇',name:'Неизвестный модуль',desc:'Чужой механизм, реагирующий на электрическое поле лодки.',use:'Исследовать модуль',effects:{energy:10,discovery:2}}
   };
   const majorScenes=Array.isArray(window.PELAGIAL_MAJOR_SCENES)?window.PELAGIAL_MAJOR_SCENES:[];
+  const science=window.PELAGIAL_SCIENCE||{zones:[],categories:[],conclusions:{}};
+  const fallbackZone={id:'shelf',name:'ПОДЛЁДНЫЙ ШЕЛЬФ',code:'ЗОНА I',subtitle:'Граница человеческого присутствия',risk:'УМЕРЕННЫЙ РИСК',description:'Верхний слой подлёдного океана.',phenomena:['ледяные каньоны'],keywords:[],colors:['#0b3548','#051923','#01070b'],travel:{},resourceBonus:0};
 
   let profile = loadProfile();
   let state = freshState();
   let currentEvent = null;
+  let archiveFilter='ВСЕ';
   let audio = null;
   const MUSIC_KEY = 'pelagial-music-muted-v2';
   const musicTracks = {
@@ -469,10 +474,11 @@
   Object.values(musicTracks).forEach(track=>{track.loop=true;track.preload='auto';track.volume=0});
 
   function nextMajorStep(from=0){return from+13+Math.floor(Math.random()*4)}
-  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],cargo:[],cargoPity:0,majorUsed:[],nextMajorAt:nextMajorStep(),active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
+  function getZone(depth){return science.zones.find(zone=>depth>=zone.min&&depth<=zone.max)||science.zones[science.zones.length-1]||fallbackZone}
+  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],cargo:[],cargoPity:0,majorUsed:[],nextMajorAt:nextMajorStep(),pendingEvent:null,active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
   function loadProfile(){
-    const empty={completed:[],totalDiscoveries:0,runs:0,recentEvents:[],wrecks:[],bestDepth:2140};
-    try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];if(!Array.isArray(saved.wrecks))saved.wrecks=[];return saved}catch{return empty}
+    const empty={completed:[],totalDiscoveries:0,runs:0,recentEvents:[],wrecks:[],archive:[],bestDepth:2140};
+    try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];if(!Array.isArray(saved.wrecks))saved.wrecks=[];if(!Array.isArray(saved.archive))saved.archive=[];return saved}catch{return empty}
   }
   function saveProfile(){ localStorage.setItem(SAVE_KEY,JSON.stringify(profile)); }
   function initAudio(){ if(audio)return;const AC=window.AudioContext||window.webkitAudioContext;if(AC)audio=new AC(); }
@@ -511,16 +517,16 @@
     ui.end.classList.remove('visible');ui.event.classList.remove('visible');ui.cargo.classList.remove('visible');state=freshState();state.active=true;profile.runs++;state.runId=profile.runs;saveProfile();
     state.journal.push({type:'НОВОЕ ПОГРУЖЕНИЕ',title:'Выход со станции «Галилей»',text:'«Нереида» уходит в свободное погружение. Возвращение не гарантировано.'});
     setContact(null);updateHud();log('Погружение №'+state.runId+' началось. Автопилот ведёт «Нереиду» всё глубже.');
-    ui.continueBtn.disabled=false;deepPing();
+    ui.continueBtn.disabled=false;deepPing();showZoneTransition(getZone(state.depth),null);
   }
   function travel(){
     if(!state.active||ui.event.classList.contains('visible'))return;
-    initAudio();tone(82,.5,.018,'triangle');
+    initAudio();tone(82,.5,.018,'triangle');const previousZone=getZone(state.depth);
     const costs={silent:{energy:-4,oxygen:-6,heat:-5},cruise:{energy:-7,oxygen:-5,heat:-2},full:{energy:-11,oxygen:-4,heat:7}}[state.speed];
-    applyEffects(costs,false);if(state.speed==='full'&&Math.random()<.3)applyEffects({hull:-3},false);
+    applyEffects(costs,false);applyEffects(previousZone.travel||{},false);if(state.speed==='full'&&Math.random()<.3)applyEffects({hull:-3},false);
     const descent={silent:[160,280],cruise:[260,440],full:[390,620]}[state.speed];state.step++;state.depth+=descent[0]+Math.random()*(descent[1]-descent[0]);profile.bestDepth=Math.max(profile.bestDepth||2140,Math.round(state.depth));saveProfile();updateHud();
     if(checkFailure())return;
-    showEvent(pickEvent());
+    const event=pickEvent(),nextZone=getZone(state.depth);if(nextZone.id!==previousZone.id){state.pendingEvent=event;showZoneTransition(nextZone,event);return}showEvent(event);
   }
   function pickEvent(){
     if(majorScenes.length&&state.step>=state.nextMajorAt)return pickMajorEvent();
@@ -530,6 +536,7 @@
     let pool=events.filter(e=>!state.used.includes(e.id)&&!recent.has(e.id));
     if(!pool.length)pool=events.filter(e=>!state.used.includes(e.id));
     if(!pool.length){state.used=[];pool=events.slice()}
+    const zone=getZone(state.depth),themed=pool.filter(event=>(zone.keywords||[]).some(keyword=>(event.type+' '+event.title).toUpperCase().includes(keyword)));if(themed.length>=4&&Math.random()<.68)pool=themed;
     const event=pool[Math.floor(Math.random()*pool.length)];
     state.used.push(event.id);
     profile.recentEvents=[event.id,...(profile.recentEvents||[]).filter(id=>id!==event.id)].slice(0,100);
@@ -542,6 +549,12 @@
   }
   function makeMajorStage(scene,index){
     const stage=scene.stages[index];return {id:'major_'+scene.id+'_'+index,type:'КРУПНОЕ СОБЫТИЕ',glyph:scene.glyph,title:stage.title,text:stage.text,quote:stage.quote||'',choices:stage.choices,majorId:scene.id,majorTitle:scene.title,majorStage:index,majorTotal:scene.stages.length};
+  }
+  function showZoneTransition(zone,pending){
+    if(pending!==undefined)state.pendingEvent=pending;document.body.dataset.zone=zone.id;ui.zoneCode.textContent=zone.code;ui.zoneGlyph.textContent=zone.code.replace(/[^IVX]/g,'')||'I';ui.zoneTitle.textContent=zone.name;ui.zoneSubtitle.textContent=zone.subtitle;ui.zoneDescription.textContent=zone.description;ui.zoneRisk.textContent=zone.risk;ui.zonePhenomena.innerHTML=(zone.phenomena||[]).map(item=>'<span>'+item+'</span>').join('');ui.zoneOverlay.classList.add('visible');tone(96,1.2,.022,'sine');
+  }
+  function continueFromZone(){
+    ui.zoneOverlay.classList.remove('visible');const pending=state.pendingEvent;state.pendingEvent=null;if(pending)showEvent(pending);else{setContact(null);updateHud()}
   }
   function makeWreckEvent(wreck){
     const depth=Math.round(wreck.depth).toLocaleString('ru-RU');
@@ -562,8 +575,8 @@
     ui.event.classList.add('visible');setContact(event);tone(event.type.includes('АВАР')?110:185,.7,.025,event.type.includes('АВАР')?'sawtooth':'sine');
   }
   function resolveChoice(index){
-    if(state.eventResolved)return;const c=currentEvent.choices[index];if(c.effects.cargoUse&&!state.cargo.includes(c.effects.cargoUse))return;state.eventResolved=true;const cargoUsed=c.effects.cargoUse?consumeCargo(c.effects.cargoUse):null;if(c.effects.wreckId){const wreck=profile.wrecks.find(w=>w.id===c.effects.wreckId);if(wreck){wreck.salvaged=true;wreck.salvagedBy=state.runId;saveProfile()}}applyEffects(c.effects,true);const cargoResult=resolveCargoReward(currentEvent,c),resourceResult=resolveResourceReward(currentEvent,c);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
-    ui.eventResult.querySelector('.effects').innerHTML=formatEffects(c.effects)+formatCargoUsed(cargoUsed)+formatCargoResult(cargoResult)+formatResourceResult(resourceResult);ui.eventResult.classList.add('visible');ui.eventContinue.textContent=currentEvent.majorId?(currentEvent.majorStage+1<currentEvent.majorTotal?'СЛЕДУЮЩИЙ ЭТАП':'ЗАВЕРШИТЬ СЦЕНУ'):'ПРОДОЛЖИТЬ';
+    if(state.eventResolved)return;const c=currentEvent.choices[index];if(c.effects.cargoUse&&!state.cargo.includes(c.effects.cargoUse))return;state.eventResolved=true;const cargoUsed=c.effects.cargoUse?consumeCargo(c.effects.cargoUse):null;if(c.effects.wreckId){const wreck=profile.wrecks.find(w=>w.id===c.effects.wreckId);if(wreck){wreck.salvaged=true;wreck.salvagedBy=state.runId;saveProfile()}}applyEffects(c.effects,true);const archiveResult=c.effects.discovery?recordDiscovery(currentEvent,c):null,cargoResult=resolveCargoReward(currentEvent,c),resourceResult=resolveResourceReward(currentEvent,c);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
+    ui.eventResult.querySelector('.effects').innerHTML=formatEffects(c.effects)+formatCargoUsed(cargoUsed)+formatCargoResult(cargoResult)+formatResourceResult(resourceResult)+formatArchiveResult(archiveResult);ui.eventResult.classList.add('visible');ui.eventContinue.textContent=currentEvent.majorId?(currentEvent.majorStage+1<currentEvent.majorTotal?'СЛЕДУЮЩИЙ ЭТАП':'ЗАВЕРШИТЬ СЦЕНУ'):'ПРОДОЛЖИТЬ';
     state.journal.unshift({type:currentEvent.majorId?'КРУПНОЕ СОБЫТИЕ · '+(currentEvent.majorStage+1)+'/'+currentEvent.majorTotal:currentEvent.type,title:currentEvent.title,text:c.title+'. '+c.result});if(state.journal.length>30)state.journal.length=30;
     updateHud();checkFailure();tone(c.effects.hull<0?96:360,.35,.02,c.effects.hull<0?'sawtooth':'triangle');
   }
@@ -602,7 +615,7 @@
   function resolveResourceReward(event,selectedChoice){
     if(event.majorId||event.type==='КЛАДБИЩЕ СУБМАРИН')return null;
     const needs=[];if(state.hull<88)needs.push({key:'hull',amount:8,label:'ремонтные материалы'});if(state.energy<88)needs.push({key:'energy',amount:12,label:'энергетический запас'});if(state.oxygen<88)needs.push({key:'oxygen',amount:12,label:'дыхательная смесь'});if(state.heat<46)needs.push({key:'heat',amount:10,label:'тепловой запас'});if(!needs.length)return null;
-    const rich=/НАХОДКА|СЛЕД|СТАНЦ|АРХЕОЛОГ|ТЕХНО/.test(event.type),chance=rich ? .28 : .16;if(Math.random()>=chance)return null;const reward=needs[Math.floor(Math.random()*needs.length)],effects={[reward.key]:reward.amount};applyEffects(effects,false);return {label:reward.label,effects};
+    const rich=/НАХОДКА|СЛЕД|СТАНЦ|АРХЕОЛОГ|ТЕХНО/.test(event.type),chance=Math.min(.48,(rich ? .28 : .16)+(getZone(state.depth).resourceBonus||0));if(Math.random()>=chance)return null;const reward=needs[Math.floor(Math.random()*needs.length)],effects={[reward.key]:reward.amount};applyEffects(effects,false);return {label:reward.label,effects};
   }
   function formatCargoUsed(item){return item?'<span class="effect cargo-effect used">ИСПОЛЬЗОВАНО: '+item.glyph+' '+item.name+'</span>':''}
   function formatCargoResult(result){
@@ -613,13 +626,32 @@
   function formatResourceResult(result){
     if(!result)return '';const entry=Object.entries(result.effects)[0],names={hull:'корпус',energy:'энергия',oxygen:'кислород',heat:'тепло'};return '<span class="effect supply-effect good">ЗАПАС: +'+entry[1]+' · '+names[entry[0]]+'</span>';
   }
+  function escapeHtml(value){return String(value??'').replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]))}
+  function discoveryCategory(event){
+    const source=(event.type+' '+event.title+' '+event.text).toUpperCase();const match=(science.categories||[]).find(item=>new RegExp(item.pattern,'i').test(source));return match?match.name:'НЕИЗВЕСТНОЕ';
+  }
+  function stableNumber(value){let hash=0;for(const char of value)hash=((hash<<5)-hash+char.charCodeAt(0))|0;return Math.abs(hash)}
+  function recordDiscovery(event,selectedChoice){
+    const key=event.id+'::'+selectedChoice.title,existing=profile.archive.find(entry=>entry.key===key);if(existing){existing.encounters=(existing.encounters||1)+1;existing.lastDepth=Math.round(state.depth);existing.lastRun=state.runId;saveProfile();updateArchiveBadges();return {entry:existing,isNew:false}}
+    const category=discoveryCategory(event),options=science.conclusions[category]||science.conclusions['НЕИЗВЕСТНОЕ']||['Данные требуют дальнейшего анализа.'],zone=getZone(state.depth),entry={key,glyph:event.glyph||'◇',title:event.title,category,summary:event.text,observation:selectedChoice.result,conclusion:options[stableNumber(key)%options.length],choice:selectedChoice.title,depth:Math.round(state.depth),zone:zone.name,run:state.runId,step:state.step,value:selectedChoice.effects.discovery||1,encounters:1,createdAt:Date.now()};profile.archive.unshift(entry);profile.archive=profile.archive.slice(0,600);saveProfile();updateArchiveBadges();return {entry,isNew:true};
+  }
+  function recordCargoDiscovery(item){
+    const event={id:'cargo_'+item.id,type:item.id==='bio_sample'?'БИОЛОГИЧЕСКИЙ ОБРАЗЕЦ':'ТЕХНОАРХЕОЛОГИЯ',glyph:item.glyph,title:item.name,text:item.desc};const selected={title:item.use,result:'Предмет исследован в лаборатории «Нереиды». Полученные данные добавлены в постоянную научную базу.',effects:item.effects};return recordDiscovery(event,selected);
+  }
+  function formatArchiveResult(result){return result?'<span class="effect archive-effect good">'+(result.isNew?'НОВАЯ ЗАПИСЬ':'АРХИВ ДОПОЛНЕН')+': '+escapeHtml(result.entry.category)+'</span>':''}
+  function updateArchiveBadges(){const count=(profile.archive||[]).length;ui.archiveCount.textContent=count;ui.menuArchiveCount.textContent=count;ui.archiveTotal.textContent=count;ui.saveNote.textContent=count?'Научный архив: '+count+' записей · данные синхронизированы':'Станция «Галилей» · научный архив пуст'}
+  function renderArchive(){
+    const entries=profile.archive||[],categories=['ВСЕ',...new Set(entries.map(entry=>entry.category))];if(!categories.includes(archiveFilter))archiveFilter='ВСЕ';ui.archiveFilters.innerHTML=categories.map(category=>'<button data-archive-filter="'+escapeHtml(category)+'" class="'+(category===archiveFilter?'active':'')+'">'+escapeHtml(category)+(category==='ВСЕ'?' · '+entries.length:'')+'</button>').join('');ui.archiveFilters.querySelectorAll('[data-archive-filter]').forEach(button=>button.addEventListener('click',()=>{archiveFilter=button.dataset.archiveFilter;renderArchive()}));
+    const visible=archiveFilter==='ВСЕ'?entries:entries.filter(entry=>entry.category===archiveFilter);if(!visible.length){ui.archiveEntries.innerHTML='<article class="archive-empty"><span>◇</span><b>АРХИВ ОЖИДАЕТ ПЕРВОГО ОТКРЫТИЯ</b><p>Исследуйте сигналы, формы жизни, структуры и следы экспедиций. Каждое подтверждённое наблюдение получит отдельное научное досье.</p></article>';return}
+    ui.archiveEntries.innerHTML=visible.map(entry=>'<details class="archive-entry"><summary><span class="archive-glyph">'+escapeHtml(entry.glyph)+'</span><div><small>'+escapeHtml(entry.category)+' · '+escapeHtml(entry.zone)+'</small><b>'+escapeHtml(entry.title)+'</b><em>'+Math.round(entry.depth).toLocaleString('ru-RU')+' м · экспедиция №'+entry.run+'</em></div><i>+</i></summary><div class="archive-body"><section><small>ОБЪЕКТ НАБЛЮДЕНИЯ</small><p>'+escapeHtml(entry.summary)+'</p></section><section><small>ЗАФИКСИРОВАННЫЙ РЕЗУЛЬТАТ</small><b>'+escapeHtml(entry.choice)+'</b><p>'+escapeHtml(entry.observation)+'</p></section><section class="archive-conclusion"><small>НАУЧНОЕ ЗАКЛЮЧЕНИЕ</small><p>'+escapeHtml(entry.conclusion)+'</p></section><footer>ПЕРВИЧНАЯ ГЛУБИНА: '+Math.round(entry.depth).toLocaleString('ru-RU')+' М · ПОВТОРНЫХ КОНТАКТОВ: '+(entry.encounters||1)+'</footer></div></details>').join('');
+  }
   function renderCargo(){
     const cargo=Array.isArray(state.cargo)?state.cargo:[];ui.cargoCount.textContent=cargo.length+'/'+CARGO_LIMIT;ui.cargoStatus.textContent=cargo.length?'ЗАНЯТО '+cargo.length+' ИЗ '+CARGO_LIMIT:'ОТСЕК ПУСТ';
     const slots=Array.from({length:CARGO_LIMIT},(_,index)=>{const item=cargoItems[cargo[index]];if(!item)return '<article class="cargo-slot empty"><span>'+String(index+1).padStart(2,'0')+'</span><b>СВОБОДНАЯ ЯЧЕЙКА</b><small>Находки появляются после исследования событий</small></article>';return '<article class="cargo-slot"><span class="cargo-glyph">'+item.glyph+'</span><div><small>ЯЧЕЙКА '+String(index+1).padStart(2,'0')+'</small><b>'+item.name+'</b><p>'+item.desc+'</p></div><button data-use-cargo="'+index+'">'+item.use+'</button></article>'}).join('');
     ui.cargoSlots.innerHTML=slots;ui.cargoSlots.querySelectorAll('[data-use-cargo]').forEach(btn=>btn.addEventListener('click',()=>useCargo(Number(btn.dataset.useCargo))));
   }
   function useCargo(index){
-    if(!state.active)return;const item=cargoItems[state.cargo[index]];if(!item)return;state.cargo.splice(index,1);applyEffects(item.effects,true);state.journal.unshift({type:'ГРУЗОВОЙ ОТСЕК',title:item.name,text:item.use+'. Предмет израсходован.'});if(state.journal.length>30)state.journal.length=30;log('Использован груз: '+item.name+'.');renderCargo();updateHud();tone(420,.28,.02,'triangle');checkFailure();
+    if(!state.active)return;const item=cargoItems[state.cargo[index]];if(!item)return;state.cargo.splice(index,1);applyEffects(item.effects,true);if(item.effects.discovery)recordCargoDiscovery(item);state.journal.unshift({type:'ГРУЗОВОЙ ОТСЕК',title:item.name,text:item.use+'. Предмет израсходован.'});if(state.journal.length>30)state.journal.length=30;log('Использован груз: '+item.name+'.');renderCargo();updateHud();tone(420,.28,.02,'triangle');checkFailure();
   }
   function closeEvent(){
     if(currentEvent&&currentEvent.majorId&&state.active&&currentEvent.majorStage+1<currentEvent.majorTotal){const scene=majorScenes.find(item=>item.id===currentEvent.majorId);if(scene){showEvent(makeMajorStage(scene,currentEvent.majorStage+1));return}}
@@ -648,12 +680,12 @@
   function updateHud(){
     const set=(text,bar,value)=>{text.textContent=Math.round(value)+'%';bar.style.width=clamp(value)+'%'};
     set(ui.hullText,ui.hullBar,state.hull);set(ui.energyText,ui.energyBar,state.energy);set(ui.oxygenText,ui.oxygenBar,state.oxygen);set(ui.heatText,ui.heatBar,state.heat);
-    ui.cargoBtn.disabled=!state.active;ui.cargoCount.textContent=(state.cargo||[]).length+'/'+CARGO_LIMIT;
-    ui.depth.textContent=Math.round(state.depth).toLocaleString('ru-RU');ui.zone.textContent=state.depth<3000?'ВЕРХНИЙ ОКЕАН':state.depth<5500?'СУМЕРЕЧНЫЙ СЛОЙ':state.depth<8000?'ТЁМНАЯ РАВНИНА':'АБИССАЛЬ';
+    ui.cargoBtn.disabled=!state.active;ui.cargoCount.textContent=(state.cargo||[]).length+'/'+CARGO_LIMIT;updateArchiveBadges();
+    const zone=getZone(state.depth);document.body.dataset.zone=zone.id;ui.depth.textContent=Math.round(state.depth).toLocaleString('ru-RU');ui.zone.textContent=zone.name;
     if(state.active){
-      const pct=clamp((state.depth-2140)/78.6);ui.missionTitle.textContent='Погружение №'+state.runId;ui.missionObjective.textContent='Свободная экспедиция. Каждое решение может открыть тайну — или оставить новый корпус на дне.';ui.routeProgress.style.width=pct+'%';ui.routeText.textContent=Math.round(state.depth).toLocaleString('ru-RU')+' М · СОБЫТИЙ: '+state.step+' · РЕКОРД: '+Math.round(profile.bestDepth||state.depth).toLocaleString('ru-RU')+' М';ui.continueBtn.disabled=false;ui.continueHint.textContent='следующее событие';ui.commandTask.textContent=state.step?'Автопилот · погружение '+state.step:'Свободное погружение';
+      const pct=clamp((state.depth-2140)/150);ui.missionTitle.textContent='Погружение №'+state.runId;ui.missionObjective.textContent=zone.code+' · '+zone.subtitle+'. Каждое решение может открыть новую запись архива.';ui.routeProgress.style.width=pct+'%';ui.routeText.textContent=Math.round(state.depth).toLocaleString('ru-RU')+' М · '+zone.name+' · СОБЫТИЙ: '+state.step+' · РЕКОРД: '+Math.round(profile.bestDepth||state.depth).toLocaleString('ru-RU')+' М';ui.continueBtn.disabled=false;ui.continueHint.textContent='следующее событие';ui.commandTask.textContent=state.step?'Автопилот · погружение '+state.step:'Свободное погружение';
     }else{ui.missionTitle.textContent='Погружение не начато';ui.missionObjective.textContent='Начните новую игру и узнайте, что ждёт «Нереиду» в глубине.';ui.routeProgress.style.width='0%';ui.routeText.textContent='БАЗА «ГАЛИЛЕЙ» · КОРПУСОВ НА ДНЕ: '+(profile.wrecks||[]).filter(w=>!w.salvaged).length;ui.continueBtn.disabled=true;ui.continueHint.textContent='Сначала начните новую игру'}
-    ui.reactorTask.textContent=state.heat>82?'Опасный перегрев':state.energy<25?'Экономичный режим':'Номинальная мощность';ui.labTask.textContent=state.discoveries?'Открытий: '+state.discoveries:'Контейнеры пусты';ui.ambient.textContent='Лёд над корпусом: '+Math.max(2.1,13.5-state.depth/520).toFixed(1).replace('.',',')+' км';
+    ui.reactorTask.textContent=state.heat>82?'Опасный перегрев':state.energy<25?'Экономичный режим':'Номинальная мощность';ui.labTask.textContent=(profile.archive||[]).length?'Архив: '+profile.archive.length+' записей':'Научный архив пуст';ui.ambient.textContent=zone.code+' · лёд над корпусом: '+Math.max(2.1,13.5-state.depth/520).toFixed(1).replace('.',',')+' км';
     const bad=Math.min(state.hull,state.energy,state.oxygen),heatBad=state.heat<18||state.heat>88;ui.shipStatus.textContent=bad<25||heatBad?'КРИТИЧЕСКОЕ СОСТОЯНИЕ':bad<55?'ТРЕБУЕТСЯ ВНИМАНИЕ':'СИСТЕМЫ В НОРМЕ';ui.shipStatus.style.color=bad<25||heatBad?'var(--red)':bad<55?'var(--amber)':'var(--green)';
     ui.sub.classList.toggle('damage-leak',state.hull<72);ui.sub.classList.toggle('damage-spark',state.energy<42);ui.sub.classList.toggle('damage-fire',state.heat>82);ui.sub.classList.toggle('blackout',state.energy<22);ui.sub.classList.toggle('flooded',state.hull<38);
   }
@@ -666,7 +698,7 @@
   const bg=ui.ocean.getContext('2d'),sonar=ui.sonar.getContext('2d');let particles=[];
   function resize(){const d=Math.min(2,devicePixelRatio||1);ui.ocean.width=innerWidth*d;ui.ocean.height=innerHeight*d;bg.setTransform(d,0,0,d,0,0);particles=Array.from({length:Math.min(100,Math.ceil(innerWidth*innerHeight/12000))},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:.3+Math.random()*1.5,s:.08+Math.random()*.28}))}
   function drawBackground(t){
-    bg.clearRect(0,0,innerWidth,innerHeight);const g=bg.createLinearGradient(0,0,0,innerHeight);g.addColorStop(0,'#092939');g.addColorStop(.42,'#04141e');g.addColorStop(1,'#01060a');bg.fillStyle=g;bg.fillRect(0,0,innerWidth,innerHeight);bg.strokeStyle='rgba(114,213,230,.055)';bg.lineWidth=1;
+    bg.clearRect(0,0,innerWidth,innerHeight);const colors=getZone(state.depth).colors||fallbackZone.colors,g=bg.createLinearGradient(0,0,0,innerHeight);g.addColorStop(0,colors[0]);g.addColorStop(.42,colors[1]);g.addColorStop(1,colors[2]);bg.fillStyle=g;bg.fillRect(0,0,innerWidth,innerHeight);bg.strokeStyle='rgba(114,213,230,.055)';bg.lineWidth=1;
     for(let i=0;i<7;i++){bg.beginPath();bg.moveTo(i*innerWidth/6+(Math.sin(t/4000+i)*35),0);bg.lineTo((i-.5)*innerWidth/6,innerHeight*.32);bg.stroke()}
     particles.forEach(p=>{p.y-=p.s;if(p.y<0){p.y=innerHeight;p.x=Math.random()*innerWidth}bg.fillStyle='rgba(133,221,228,'+(.12+p.r*.05)+')';bg.beginPath();bg.arc(p.x,p.y,p.r,0,7);bg.fill()});
   }
@@ -682,11 +714,12 @@
   ui.musicToggle.addEventListener('click',toggleMusic);
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
   ui.cargoBtn.addEventListener('click',()=>{renderCargo();ui.cargo.classList.add('visible')});ui.closeCargo.addEventListener('click',()=>ui.cargo.classList.remove('visible'));
+  const openArchive=()=>{renderArchive();ui.archive.classList.add('visible')};ui.archiveBtn.addEventListener('click',openArchive);ui.menuArchiveBtn.addEventListener('click',openArchive);ui.closeArchive.addEventListener('click',()=>ui.archive.classList.remove('visible'));ui.zoneContinue.addEventListener('click',continueFromZone);
   ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',startNewGame);
   document.querySelectorAll('[data-speed]').forEach(btn=>btn.addEventListener('click',()=>setSpeed(btn.dataset.speed)));
   window.addEventListener('resize',resize);window.addEventListener('pointerdown',unlockAudio,{once:true});window.addEventListener('keydown',unlockAudio,{once:true});
   document.addEventListener('visibilitychange',()=>document.hidden?pauseForBackground():resumeFromBackground());
   window.addEventListener('pagehide',pauseForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeFromBackground()});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  syncMusicButton();switchMusic('menu',1400);resize();renderCargo();updateHud();requestAnimationFrame(frame);
+  syncMusicButton();switchMusic('menu',1400);resize();renderCargo();updateArchiveBadges();updateHud();requestAnimationFrame(frame);
 })();
