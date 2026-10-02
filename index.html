@@ -8,7 +8,7 @@
   <title>Пелагиаль забвения</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=22-events">
+  <link rel="stylesheet" href="styles.css?v=23-cargo">
 </head>
 <body>
   <main id="game">
@@ -30,7 +30,7 @@
     <section class="mission-card glass">
       <div><small>ТЕКУЩЕЕ ПОГРУЖЕНИЕ</small><h2 id="missionTitle">Погружение не начато</h2><p id="missionObjective">Начните новую игру и узнайте, что ждёт «Нереиду» в глубине.</p></div>
       <div class="route-progress"><i><em id="routeProgress"></em></i><span id="routeText">БАЗА «ГАЛИЛЕЙ»</span></div>
-      <div class="mission-actions"><button id="journalBtn" class="small-btn">ЖУРНАЛ</button></div>
+      <div class="mission-actions"><button id="cargoBtn" class="small-btn cargo-button" disabled>ГРУЗ <b id="cargoCount">0/6</b></button><button id="journalBtn" class="small-btn">ЖУРНАЛ</button></div>
     </section>
 
     <section class="interior glass" aria-label="Интерьер подлодки Нереида">
@@ -131,6 +131,14 @@
       </section>
     </div>
 
+    <div id="cargoOverlay" class="overlay cargo-overlay" role="dialog" aria-modal="true" aria-labelledby="cargoTitle">
+      <section class="dialog cargo-dialog">
+        <header><div><div class="eyebrow">СКЛАДСКОЙ МОДУЛЬ · 6 ЯЧЕЕК</div><h2 id="cargoTitle">ГРУЗОВОЙ ОТСЕК</h2></div><button id="closeCargo" class="close-btn" aria-label="Закрыть">×</button></header>
+        <div class="cargo-summary"><span id="cargoStatus">ОТСЕК ПУСТ</span><small>Находки не переносятся на новую лодку, но могут сохраниться в затонувшем корпусе.</small></div>
+        <div id="cargoSlots" class="cargo-slots"></div>
+      </section>
+    </div>
+
     <div id="endOverlay" class="overlay end-overlay">
       <section class="dialog end-dialog">
         <div class="eyebrow" id="endEyebrow">СВЯЗЬ ПОТЕРЯНА</div>
@@ -139,8 +147,8 @@
       </section>
     </div>
   </main>
-  <script src="events-pack-2.js?v=22-events"></script>
-  <script src="events-pack-3.js?v=22-events"></script>
-  <script src="app.js?v=22-events"></script>
+  <script src="events-pack-2.js?v=23-cargo"></script>
+  <script src="events-pack-3.js?v=23-cargo"></script>
+  <script src="app.js?v=23-cargo"></script>
 </body>
 </html>

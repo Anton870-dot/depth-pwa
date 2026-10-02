@@ -5,6 +5,7 @@
   const ui = {
     ocean: $('ocean'), sonar: $('sonar'), intro: $('intro'), start: $('startBtn'), musicToggle: $('musicToggle'),
     journal: $('journalOverlay'), journalBtn: $('journalBtn'), closeJournal: $('closeJournal'), journalEntries: $('journalEntries'),
+    cargo: $('cargoOverlay'), cargoBtn: $('cargoBtn'), cargoCount: $('cargoCount'), closeCargo: $('closeCargo'), cargoSlots: $('cargoSlots'), cargoStatus: $('cargoStatus'),
     event: $('eventOverlay'), eventType: $('eventType'), eventTitle: $('eventTitle'), eventText: $('eventText'), eventQuote: $('eventQuote'),
     eventGlyph: $('eventGlyph'), eventChoices: $('eventChoices'), eventResult: $('eventResult'), eventContinue: $('eventContinue'),
     end: $('endOverlay'), endEyebrow: $('endEyebrow'), endTitle: $('endTitle'), endText: $('endText'), endBtn: $('endBtn'),
@@ -436,6 +437,18 @@
     ]}
   };
 
+  const CARGO_LIMIT = 6;
+  const cargoItems = {
+    repair_plate:{id:'repair_plate',glyph:'▰',name:'Ремонтная пластина',desc:'Композитная секция для герметизации повреждённой обшивки.',use:'Установить на корпус',effects:{hull:18}},
+    power_cell:{id:'power_cell',glyph:'ϟ',name:'Энергетическая ячейка',desc:'Герметичный накопитель с остаточным зарядом.',use:'Подключить к сети',effects:{energy:24}},
+    oxygen_cassette:{id:'oxygen_cassette',glyph:'○',name:'Кислородная кассета',desc:'Аварийный запас очищенной дыхательной смеси.',use:'Зарядить регенератор',effects:{oxygen:22}},
+    thermal_core:{id:'thermal_core',glyph:'♨',name:'Тепловое ядро',desc:'Фазовый аккумулятор, медленно отдающий накопленное тепло.',use:'Прогреть отсеки',effects:{heat:18}},
+    coolant:{id:'coolant',glyph:'❄',name:'Криогенный хладагент',desc:'Охлаждает реактор. Опасен при уже низкой температуре.',use:'Охладить контур',effects:{heat:-20}},
+    insulation:{id:'insulation',glyph:'◫',name:'Умная изоляция',desc:'Самозатягивающийся материал для корпуса и тепловых магистралей.',use:'Развернуть покрытие',effects:{hull:8,heat:10}},
+    bio_sample:{id:'bio_sample',glyph:'✤',name:'Живой образец',desc:'Редкая подлёдная форма жизни в автономном контейнере.',use:'Передать в лабораторию',effects:{discovery:3}},
+    ancient_module:{id:'ancient_module',glyph:'◇',name:'Неизвестный модуль',desc:'Чужой механизм, реагирующий на электрическое поле лодки.',use:'Исследовать модуль',effects:{energy:10,discovery:2}}
+  };
+
   let profile = loadProfile();
   let state = freshState();
   let currentEvent = null;
@@ -454,7 +467,7 @@
   let resumeAfterBackground = false;
   Object.values(musicTracks).forEach(track=>{track.loop=true;track.preload='auto';track.volume=0});
 
-  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
+  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],cargo:[],cargoPity:0,active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
   function loadProfile(){
     const empty={completed:[],totalDiscoveries:0,runs:0,recentEvents:[],wrecks:[],bestDepth:2140};
     try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];if(!Array.isArray(saved.wrecks))saved.wrecks=[];return saved}catch{return empty}
@@ -493,7 +506,7 @@
   }
 
   function startNewGame(){
-    ui.end.classList.remove('visible');ui.event.classList.remove('visible');state=freshState();state.active=true;profile.runs++;state.runId=profile.runs;saveProfile();
+    ui.end.classList.remove('visible');ui.event.classList.remove('visible');ui.cargo.classList.remove('visible');state=freshState();state.active=true;profile.runs++;state.runId=profile.runs;saveProfile();
     state.journal.push({type:'НОВОЕ ПОГРУЖЕНИЕ',title:'Выход со станции «Галилей»',text:'«Нереида» уходит в свободное погружение. Возвращение не гарантировано.'});
     setContact(null);updateHud();log('Погружение №'+state.runId+' началось. Автопилот ведёт «Нереиду» всё глубже.');
     ui.continueBtn.disabled=false;deepPing();
@@ -522,11 +535,14 @@
   }
   function makeWreckEvent(wreck){
     const depth=Math.round(wreck.depth).toLocaleString('ru-RU');
-    return {id:'graveyard_'+wreck.id,type:'КЛАДБИЩЕ СУБМАРИН',glyph:'⌁',title:'Наша «Нереида»',text:'На глубине '+depth+' м прожекторы выхватывают знакомый силуэт. Это «Нереида» из погружения №'+wreck.run+'. Океан сохранил корпус там, где оборвалась прошлая игра.',quote:'Бортовой архив: «Идентификация подтверждена. Это были мы».',choices:[
+    const choices=[
       choice('Снять бронепластины','Разобрать уцелевшие внешние секции корпуса.','Манипуляторы отделяют целые пластины. Старая «Нереида» защищает новую.',{hull:22,wreckId:wreck.id},'АВАРИЙНЫЙ РЕМОНТ'),
       choice('Забрать аккумуляторы','Подключиться к герметичным кормовым блокам.','Несколько ячеек всё ещё держат заряд. Реактор получает драгоценный резерв.',{energy:28,wreckId:wreck.id},'ЗАПАС ЭНЕРГИИ'),
       choice('Вскрыть склад снабжения','Извлечь кислородные кассеты и теплоизоляцию.','Склад пережил катастрофу. Воздух очищен, отсеки снова прогреваются.',{oxygen:24,heat:12,wreckId:wreck.id},'ЗАПАСЫ ЖИЗНЕОБЕСПЕЧЕНИЯ')
-    ]};
+    ];
+    const recoveredId=Array.isArray(wreck.cargo)&&wreck.cargo.find(id=>cargoItems[id]);
+    if(recoveredId&&state.cargo.length<CARGO_LIMIT){const item=cargoItems[recoveredId];choices.push(choice('Вскрыть грузовой отсек','Попытаться вернуть находку из прошлого погружения.','Герметичная ячейка уцелела. На борт поднят предмет: «'+item.name+'».',{cargoItem:item.id,wreckId:wreck.id},'ГРУЗ ПРОШЛОЙ ЛОДКИ'))}
+    return {id:'graveyard_'+wreck.id,type:'КЛАДБИЩЕ СУБМАРИН',glyph:'⌁',title:'Наша «Нереида»',text:'На глубине '+depth+' м прожекторы выхватывают знакомый силуэт. Это «Нереида» из погружения №'+wreck.run+'. Океан сохранил корпус там, где оборвалась прошлая игра.',quote:'Бортовой архив: «Идентификация подтверждена. Это были мы».',choices};
   }
   function showEvent(event){
     currentEvent=event;state.eventResolved=false;ui.eventType.textContent=event.type;ui.eventTitle.textContent=event.title;ui.eventText.textContent=event.text;ui.eventQuote.textContent=event.quote||'';ui.eventGlyph.textContent=event.glyph;
@@ -536,8 +552,8 @@
     ui.event.classList.add('visible');setContact(event);tone(event.type.includes('АВАР')?110:185,.7,.025,event.type.includes('АВАР')?'sawtooth':'sine');
   }
   function resolveChoice(index){
-    if(state.eventResolved)return;state.eventResolved=true;const c=currentEvent.choices[index];if(c.effects.wreckId){const wreck=profile.wrecks.find(w=>w.id===c.effects.wreckId);if(wreck){wreck.salvaged=true;wreck.salvagedBy=state.runId;saveProfile()}}applyEffects(c.effects,true);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
-    ui.eventResult.querySelector('.effects').innerHTML=formatEffects(c.effects);ui.eventResult.classList.add('visible');
+    if(state.eventResolved)return;state.eventResolved=true;const c=currentEvent.choices[index];if(c.effects.wreckId){const wreck=profile.wrecks.find(w=>w.id===c.effects.wreckId);if(wreck){wreck.salvaged=true;wreck.salvagedBy=state.runId;saveProfile()}}applyEffects(c.effects,true);const cargoResult=resolveCargoReward(currentEvent,c);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
+    ui.eventResult.querySelector('.effects').innerHTML=formatEffects(c.effects)+formatCargoResult(cargoResult);ui.eventResult.classList.add('visible');
     state.journal.unshift({type:currentEvent.type,title:currentEvent.title,text:c.title+'. '+c.result});if(state.journal.length>30)state.journal.length=30;
     updateHud();checkFailure();tone(c.effects.hull<0?96:360,.35,.02,c.effects.hull<0?'sawtooth':'triangle');
   }
@@ -551,9 +567,40 @@
     if(effects.discovery){state.discoveries=Math.max(0,state.discoveries+effects.discovery);profile.totalDiscoveries=Math.max(0,profile.totalDiscoveries+effects.discovery);saveProfile()}
     state.lastEffects=effects;if(visual){ui.sub.classList.remove('warning');void ui.sub.offsetWidth;ui.sub.classList.add('warning')}
   }
+  function cargoPoolFor(event){
+    const type=event.type||'';
+    if(/БИОЛОГ|ФАУН|ЖИЗН|ОКЕАН/.test(type))return ['bio_sample','oxygen_cassette','thermal_core','insulation'];
+    if(/ТЕХ|РЕАКТОР|ЭЛЕКТР|АВАР/.test(type))return ['power_cell','repair_plate','coolant','insulation'];
+    if(/СТРУКТУР|АРХЕОЛОГ|АНОМАЛ|СЛЕД/.test(type))return ['ancient_module','power_cell','bio_sample','repair_plate'];
+    return Object.keys(cargoItems);
+  }
+  function addCargo(itemId){
+    if(!cargoItems[itemId]||state.cargo.length>=CARGO_LIMIT)return false;
+    state.cargo.push(itemId);renderCargo();return true;
+  }
+  function resolveCargoReward(event,selectedChoice){
+    if(selectedChoice.effects.cargoItem){const item=cargoItems[selectedChoice.effects.cargoItem];return item&&addCargo(item.id)?{status:'found',item}:{status:'full',item}}
+    if(event.type==='КЛАДБИЩЕ СУБМАРИН'||state.cargo.length>=CARGO_LIMIT)return null;
+    state.cargoPity++;const rich=/НАХОДКА|СЛЕД|АРХЕОЛОГ|СТРУКТУР|ТЕХНО/.test(event.type);const positive=Object.entries(selectedChoice.effects).some(([k,v])=>['hull','energy','oxygen','heat','discovery'].includes(k)&&v>0);const chance=rich ? .48 : positive ? .24 : .12;
+    if(Math.random()>=chance&&state.cargoPity<3)return null;
+    const pool=cargoPoolFor(event),item=cargoItems[pool[Math.floor(Math.random()*pool.length)]];if(!addCargo(item.id))return null;state.cargoPity=0;return {status:'found',item};
+  }
+  function formatCargoResult(result){
+    if(!result)return '';
+    if(result.status==='full')return '<span class="effect cargo-effect bad">Грузовой отсек заполнен</span>';
+    return '<span class="effect cargo-effect good">ГРУЗ: '+result.item.glyph+' '+result.item.name+'</span>';
+  }
+  function renderCargo(){
+    const cargo=Array.isArray(state.cargo)?state.cargo:[];ui.cargoCount.textContent=cargo.length+'/'+CARGO_LIMIT;ui.cargoStatus.textContent=cargo.length?'ЗАНЯТО '+cargo.length+' ИЗ '+CARGO_LIMIT:'ОТСЕК ПУСТ';
+    const slots=Array.from({length:CARGO_LIMIT},(_,index)=>{const item=cargoItems[cargo[index]];if(!item)return '<article class="cargo-slot empty"><span>'+String(index+1).padStart(2,'0')+'</span><b>СВОБОДНАЯ ЯЧЕЙКА</b><small>Находки появляются после исследования событий</small></article>';return '<article class="cargo-slot"><span class="cargo-glyph">'+item.glyph+'</span><div><small>ЯЧЕЙКА '+String(index+1).padStart(2,'0')+'</small><b>'+item.name+'</b><p>'+item.desc+'</p></div><button data-use-cargo="'+index+'">'+item.use+'</button></article>'}).join('');
+    ui.cargoSlots.innerHTML=slots;ui.cargoSlots.querySelectorAll('[data-use-cargo]').forEach(btn=>btn.addEventListener('click',()=>useCargo(Number(btn.dataset.useCargo))));
+  }
+  function useCargo(index){
+    if(!state.active)return;const item=cargoItems[state.cargo[index]];if(!item)return;state.cargo.splice(index,1);applyEffects(item.effects,true);state.journal.unshift({type:'ГРУЗОВОЙ ОТСЕК',title:item.name,text:item.use+'. Предмет израсходован.'});if(state.journal.length>30)state.journal.length=30;log('Использован груз: '+item.name+'.');renderCargo();updateHud();tone(420,.28,.02,'triangle');checkFailure();
+  }
   function closeEvent(){ui.event.classList.remove('visible');ui.eventContinue.textContent='ПРОДОЛЖИТЬ';setContact(null);updateHud()}
   function recordWreck(reason){
-    if(state.wreckRecorded)return;state.wreckRecorded=true;profile.wrecks.unshift({id:'wreck-'+Date.now(),run:state.runId,depth:Math.round(state.depth),reason,step:state.step,salvaged:false});profile.wrecks=profile.wrecks.slice(0,12);saveProfile();
+    if(state.wreckRecorded)return;state.wreckRecorded=true;profile.wrecks.unshift({id:'wreck-'+Date.now(),run:state.runId,depth:Math.round(state.depth),reason,step:state.step,cargo:state.cargo.slice(),salvaged:false});profile.wrecks=profile.wrecks.slice(0,12);saveProfile();
   }
   function checkFailure(){
     let reason='';if(state.hull<=0)reason='Корпус «Нереиды» не выдержал давления океана.';else if(state.oxygen<=0)reason='Последний запас кислорода исчерпан вдали от станции.';else if(state.heat<=0)reason='Реактор остановлен. Лёд медленно сковал все отсеки.';else if(state.heat>=100)reason='Первый контур разрушен перегревом.';else if(state.energy<=0)reason='Без энергии лодка легла на дно и перестала отвечать.';
@@ -574,6 +621,7 @@
   function updateHud(){
     const set=(text,bar,value)=>{text.textContent=Math.round(value)+'%';bar.style.width=clamp(value)+'%'};
     set(ui.hullText,ui.hullBar,state.hull);set(ui.energyText,ui.energyBar,state.energy);set(ui.oxygenText,ui.oxygenBar,state.oxygen);set(ui.heatText,ui.heatBar,state.heat);
+    ui.cargoBtn.disabled=!state.active;ui.cargoCount.textContent=(state.cargo||[]).length+'/'+CARGO_LIMIT;
     ui.depth.textContent=Math.round(state.depth).toLocaleString('ru-RU');ui.zone.textContent=state.depth<3000?'ВЕРХНИЙ ОКЕАН':state.depth<5500?'СУМЕРЕЧНЫЙ СЛОЙ':state.depth<8000?'ТЁМНАЯ РАВНИНА':'АБИССАЛЬ';
     if(state.active){
       const pct=clamp((state.depth-2140)/78.6);ui.missionTitle.textContent='Погружение №'+state.runId;ui.missionObjective.textContent='Свободная экспедиция. Каждое решение может открыть тайну — или оставить новый корпус на дне.';ui.routeProgress.style.width=pct+'%';ui.routeText.textContent=Math.round(state.depth).toLocaleString('ru-RU')+' М · СОБЫТИЙ: '+state.step+' · РЕКОРД: '+Math.round(profile.bestDepth||state.depth).toLocaleString('ru-RU')+' М';ui.continueBtn.disabled=false;ui.continueHint.textContent='следующее событие';ui.commandTask.textContent=state.step?'Автопилот · погружение '+state.step:'Свободное погружение';
@@ -606,11 +654,12 @@
   ui.start.addEventListener('click',()=>{initAudio();switchMusic('game');ui.intro.classList.remove('visible');startNewGame()});
   ui.musicToggle.addEventListener('click',toggleMusic);
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
+  ui.cargoBtn.addEventListener('click',()=>{renderCargo();ui.cargo.classList.add('visible')});ui.closeCargo.addEventListener('click',()=>ui.cargo.classList.remove('visible'));
   ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',startNewGame);
   document.querySelectorAll('[data-speed]').forEach(btn=>btn.addEventListener('click',()=>setSpeed(btn.dataset.speed)));
   window.addEventListener('resize',resize);window.addEventListener('pointerdown',unlockAudio,{once:true});window.addEventListener('keydown',unlockAudio,{once:true});
   document.addEventListener('visibilitychange',()=>document.hidden?pauseForBackground():resumeFromBackground());
   window.addEventListener('pagehide',pauseForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeFromBackground()});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  syncMusicButton();switchMusic('menu',1400);resize();updateHud();requestAnimationFrame(frame);
+  syncMusicButton();switchMusic('menu',1400);resize();renderCargo();updateHud();requestAnimationFrame(frame);
 })();

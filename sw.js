@@ -1,4 +1,4 @@
-const CACHE = 'pelagial-v22-events';
+const CACHE = 'pelagial-v23-cargo';
 const FILES = ['./', './index.html', './styles.css', './events-pack-2.js', './events-pack-3.js', './app.js', './manifest.webmanifest', './icon.svg', './assets/menu-nereida-v1.png', './assets/crew-sprites-v1.png', './assets/europa-awaits.mp3', './assets/beneath-europa.mp3'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
