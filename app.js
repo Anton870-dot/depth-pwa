@@ -7,7 +7,7 @@
     journal: $('journalOverlay'), journalBtn: $('journalBtn'), closeJournal: $('closeJournal'), journalEntries: $('journalEntries'),
     cargo: $('cargoOverlay'), cargoBtn: $('cargoBtn'), cargoCount: $('cargoCount'), closeCargo: $('closeCargo'), cargoSlots: $('cargoSlots'), cargoStatus: $('cargoStatus'),
     event: $('eventOverlay'), eventType: $('eventType'), eventTitle: $('eventTitle'), eventText: $('eventText'), eventQuote: $('eventQuote'),
-    eventGlyph: $('eventGlyph'), eventChoices: $('eventChoices'), eventResult: $('eventResult'), eventContinue: $('eventContinue'),
+    eventGlyph: $('eventGlyph'), eventSequence: $('eventSequence'), eventChoices: $('eventChoices'), eventResult: $('eventResult'), eventContinue: $('eventContinue'),
     end: $('endOverlay'), endEyebrow: $('endEyebrow'), endTitle: $('endTitle'), endText: $('endText'), endBtn: $('endBtn'),
     missionTitle: $('missionTitle'), missionObjective: $('missionObjective'), routeProgress: $('routeProgress'), routeText: $('routeText'),
     depth: $('depthValue'), zone: $('zoneName'), hullText: $('hullText'), hullBar: $('hullBar'), energyText: $('energyText'), energyBar: $('energyBar'),
@@ -448,6 +448,7 @@
     bio_sample:{id:'bio_sample',glyph:'✤',name:'Живой образец',desc:'Редкая подлёдная форма жизни в автономном контейнере.',use:'Передать в лабораторию',effects:{discovery:3}},
     ancient_module:{id:'ancient_module',glyph:'◇',name:'Неизвестный модуль',desc:'Чужой механизм, реагирующий на электрическое поле лодки.',use:'Исследовать модуль',effects:{energy:10,discovery:2}}
   };
+  const majorScenes=Array.isArray(window.PELAGIAL_MAJOR_SCENES)?window.PELAGIAL_MAJOR_SCENES:[];
 
   let profile = loadProfile();
   let state = freshState();
@@ -467,7 +468,8 @@
   let resumeAfterBackground = false;
   Object.values(musicTracks).forEach(track=>{track.loop=true;track.preload='auto';track.volume=0});
 
-  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],cargo:[],cargoPity:0,active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
+  function nextMajorStep(from=0){return from+13+Math.floor(Math.random()*4)}
+  function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],cargo:[],cargoPity:0,majorUsed:[],nextMajorAt:nextMajorStep(),active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
   function loadProfile(){
     const empty={completed:[],totalDiscoveries:0,runs:0,recentEvents:[],wrecks:[],bestDepth:2140};
     try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];if(!Array.isArray(saved.wrecks))saved.wrecks=[];return saved}catch{return empty}
@@ -521,6 +523,7 @@
     showEvent(pickEvent());
   }
   function pickEvent(){
+    if(majorScenes.length&&state.step>=state.nextMajorAt)return pickMajorEvent();
     const wreck=(profile.wrecks||[]).find(w=>!w.salvaged&&w.run!==state.runId&&state.depth>=w.depth-450);
     if(wreck&&!state.encounteredWreck&&Math.random()<.35){state.encounteredWreck=true;return makeWreckEvent(wreck)}
     const recent=new Set(profile.recentEvents||[]);
@@ -532,6 +535,13 @@
     profile.recentEvents=[event.id,...(profile.recentEvents||[]).filter(id=>id!==event.id)].slice(0,100);
     saveProfile();
     return event;
+  }
+  function pickMajorEvent(){
+    let pool=majorScenes.filter(scene=>!state.majorUsed.includes(scene.id));if(!pool.length){state.majorUsed=[];pool=majorScenes.slice()}
+    const scene=pool[Math.floor(Math.random()*pool.length)];state.majorUsed.push(scene.id);return makeMajorStage(scene,0);
+  }
+  function makeMajorStage(scene,index){
+    const stage=scene.stages[index];return {id:'major_'+scene.id+'_'+index,type:'КРУПНОЕ СОБЫТИЕ',glyph:scene.glyph,title:stage.title,text:stage.text,quote:stage.quote||'',choices:stage.choices,majorId:scene.id,majorTitle:scene.title,majorStage:index,majorTotal:scene.stages.length};
   }
   function makeWreckEvent(wreck){
     const depth=Math.round(wreck.depth).toLocaleString('ru-RU');
@@ -545,16 +555,16 @@
     return {id:'graveyard_'+wreck.id,type:'КЛАДБИЩЕ СУБМАРИН',glyph:'⌁',title:'Наша «Нереида»',text:'На глубине '+depth+' м прожекторы выхватывают знакомый силуэт. Это «Нереида» из погружения №'+wreck.run+'. Океан сохранил корпус там, где оборвалась прошлая игра.',quote:'Бортовой архив: «Идентификация подтверждена. Это были мы».',choices};
   }
   function showEvent(event){
-    currentEvent=event;state.eventResolved=false;ui.eventType.textContent=event.type;ui.eventTitle.textContent=event.title;ui.eventText.textContent=event.text;ui.eventQuote.textContent=event.quote||'';ui.eventGlyph.textContent=event.glyph;
-    ui.eventResult.classList.remove('visible');ui.eventChoices.style.display='grid';
-    ui.eventChoices.innerHTML=event.choices.map((c,i)=>'<button data-choice="'+i+'"><b>'+c.title+'</b><span>'+c.desc+'</span>'+(c.special?'<small>'+c.special+'</small>':'')+'</button>').join('');
+    currentEvent=event;state.eventResolved=false;ui.eventType.textContent=event.majorId?event.majorTitle:event.type;ui.eventTitle.textContent=event.title;ui.eventText.textContent=event.text;ui.eventQuote.textContent=event.quote||'';ui.eventGlyph.textContent=event.glyph;ui.event.classList.toggle('major-scene',Boolean(event.majorId));ui.eventSequence.querySelector('b').textContent=event.majorId?'ЭТАП '+(event.majorStage+1)+'/'+event.majorTotal:'';ui.eventSequence.querySelector('em').style.width=event.majorId?((event.majorStage+1)/event.majorTotal*100)+'%':'0%';
+    ui.eventResult.classList.remove('visible');ui.eventChoices.style.display='grid';ui.eventContinue.textContent='ПРОДОЛЖИТЬ';
+    ui.eventChoices.innerHTML=event.choices.map((c,i)=>{const required=c.effects.cargoUse,item=cargoItems[required],unavailable=required&&!state.cargo.includes(required);const note=required?(unavailable?'НЕТ В ГРУЗЕ · ':'ИСПОЛЬЗОВАТЬ · ')+(item?item.name:'предмет'):c.special;return '<button data-choice="'+i+'"'+(unavailable?' disabled class="cargo-locked"':'')+'><b>'+c.title+'</b><span>'+c.desc+'</span>'+(note?'<small>'+note+'</small>':'')+'</button>'}).join('');
     ui.eventChoices.querySelectorAll('[data-choice]').forEach(btn=>btn.addEventListener('click',()=>resolveChoice(Number(btn.dataset.choice))));
     ui.event.classList.add('visible');setContact(event);tone(event.type.includes('АВАР')?110:185,.7,.025,event.type.includes('АВАР')?'sawtooth':'sine');
   }
   function resolveChoice(index){
-    if(state.eventResolved)return;state.eventResolved=true;const c=currentEvent.choices[index];if(c.effects.wreckId){const wreck=profile.wrecks.find(w=>w.id===c.effects.wreckId);if(wreck){wreck.salvaged=true;wreck.salvagedBy=state.runId;saveProfile()}}applyEffects(c.effects,true);const cargoResult=resolveCargoReward(currentEvent,c);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
-    ui.eventResult.querySelector('.effects').innerHTML=formatEffects(c.effects)+formatCargoResult(cargoResult);ui.eventResult.classList.add('visible');
-    state.journal.unshift({type:currentEvent.type,title:currentEvent.title,text:c.title+'. '+c.result});if(state.journal.length>30)state.journal.length=30;
+    if(state.eventResolved)return;const c=currentEvent.choices[index];if(c.effects.cargoUse&&!state.cargo.includes(c.effects.cargoUse))return;state.eventResolved=true;const cargoUsed=c.effects.cargoUse?consumeCargo(c.effects.cargoUse):null;if(c.effects.wreckId){const wreck=profile.wrecks.find(w=>w.id===c.effects.wreckId);if(wreck){wreck.salvaged=true;wreck.salvagedBy=state.runId;saveProfile()}}applyEffects(c.effects,true);const cargoResult=resolveCargoReward(currentEvent,c),resourceResult=resolveResourceReward(currentEvent,c);ui.eventChoices.style.display='none';ui.eventResult.querySelector('p').textContent=c.result;
+    ui.eventResult.querySelector('.effects').innerHTML=formatEffects(c.effects)+formatCargoUsed(cargoUsed)+formatCargoResult(cargoResult)+formatResourceResult(resourceResult);ui.eventResult.classList.add('visible');ui.eventContinue.textContent=currentEvent.majorId?(currentEvent.majorStage+1<currentEvent.majorTotal?'СЛЕДУЮЩИЙ ЭТАП':'ЗАВЕРШИТЬ СЦЕНУ'):'ПРОДОЛЖИТЬ';
+    state.journal.unshift({type:currentEvent.majorId?'КРУПНОЕ СОБЫТИЕ · '+(currentEvent.majorStage+1)+'/'+currentEvent.majorTotal:currentEvent.type,title:currentEvent.title,text:c.title+'. '+c.result});if(state.journal.length>30)state.journal.length=30;
     updateHud();checkFailure();tone(c.effects.hull<0?96:360,.35,.02,c.effects.hull<0?'sawtooth':'triangle');
   }
   function formatEffects(effects){
@@ -578,17 +588,30 @@
     if(!cargoItems[itemId]||state.cargo.length>=CARGO_LIMIT)return false;
     state.cargo.push(itemId);renderCargo();return true;
   }
+  function consumeCargo(itemId){
+    const index=state.cargo.indexOf(itemId);if(index<0)return null;state.cargo.splice(index,1);renderCargo();return cargoItems[itemId];
+  }
   function resolveCargoReward(event,selectedChoice){
     if(selectedChoice.effects.cargoItem){const item=cargoItems[selectedChoice.effects.cargoItem];return item&&addCargo(item.id)?{status:'found',item}:{status:'full',item}}
+    if(event.majorId)return null;
     if(event.type==='КЛАДБИЩЕ СУБМАРИН'||state.cargo.length>=CARGO_LIMIT)return null;
     state.cargoPity++;const rich=/НАХОДКА|СЛЕД|АРХЕОЛОГ|СТРУКТУР|ТЕХНО/.test(event.type);const positive=Object.entries(selectedChoice.effects).some(([k,v])=>['hull','energy','oxygen','heat','discovery'].includes(k)&&v>0);const chance=rich ? .48 : positive ? .24 : .12;
     if(Math.random()>=chance&&state.cargoPity<3)return null;
     const pool=cargoPoolFor(event),item=cargoItems[pool[Math.floor(Math.random()*pool.length)]];if(!addCargo(item.id))return null;state.cargoPity=0;return {status:'found',item};
   }
+  function resolveResourceReward(event,selectedChoice){
+    if(event.majorId||event.type==='КЛАДБИЩЕ СУБМАРИН')return null;
+    const needs=[];if(state.hull<88)needs.push({key:'hull',amount:8,label:'ремонтные материалы'});if(state.energy<88)needs.push({key:'energy',amount:12,label:'энергетический запас'});if(state.oxygen<88)needs.push({key:'oxygen',amount:12,label:'дыхательная смесь'});if(state.heat<46)needs.push({key:'heat',amount:10,label:'тепловой запас'});if(!needs.length)return null;
+    const rich=/НАХОДКА|СЛЕД|СТАНЦ|АРХЕОЛОГ|ТЕХНО/.test(event.type),chance=rich ? .28 : .16;if(Math.random()>=chance)return null;const reward=needs[Math.floor(Math.random()*needs.length)],effects={[reward.key]:reward.amount};applyEffects(effects,false);return {label:reward.label,effects};
+  }
+  function formatCargoUsed(item){return item?'<span class="effect cargo-effect used">ИСПОЛЬЗОВАНО: '+item.glyph+' '+item.name+'</span>':''}
   function formatCargoResult(result){
     if(!result)return '';
     if(result.status==='full')return '<span class="effect cargo-effect bad">Грузовой отсек заполнен</span>';
     return '<span class="effect cargo-effect good">ГРУЗ: '+result.item.glyph+' '+result.item.name+'</span>';
+  }
+  function formatResourceResult(result){
+    if(!result)return '';const entry=Object.entries(result.effects)[0],names={hull:'корпус',energy:'энергия',oxygen:'кислород',heat:'тепло'};return '<span class="effect supply-effect good">ЗАПАС: +'+entry[1]+' · '+names[entry[0]]+'</span>';
   }
   function renderCargo(){
     const cargo=Array.isArray(state.cargo)?state.cargo:[];ui.cargoCount.textContent=cargo.length+'/'+CARGO_LIMIT;ui.cargoStatus.textContent=cargo.length?'ЗАНЯТО '+cargo.length+' ИЗ '+CARGO_LIMIT:'ОТСЕК ПУСТ';
@@ -598,7 +621,11 @@
   function useCargo(index){
     if(!state.active)return;const item=cargoItems[state.cargo[index]];if(!item)return;state.cargo.splice(index,1);applyEffects(item.effects,true);state.journal.unshift({type:'ГРУЗОВОЙ ОТСЕК',title:item.name,text:item.use+'. Предмет израсходован.'});if(state.journal.length>30)state.journal.length=30;log('Использован груз: '+item.name+'.');renderCargo();updateHud();tone(420,.28,.02,'triangle');checkFailure();
   }
-  function closeEvent(){ui.event.classList.remove('visible');ui.eventContinue.textContent='ПРОДОЛЖИТЬ';setContact(null);updateHud()}
+  function closeEvent(){
+    if(currentEvent&&currentEvent.majorId&&state.active&&currentEvent.majorStage+1<currentEvent.majorTotal){const scene=majorScenes.find(item=>item.id===currentEvent.majorId);if(scene){showEvent(makeMajorStage(scene,currentEvent.majorStage+1));return}}
+    if(currentEvent&&currentEvent.majorId){state.nextMajorAt=nextMajorStep(state.step);log('Крупное событие «'+currentEvent.majorTitle+'» завершено. Погружение продолжается.')}
+    ui.event.classList.remove('visible');ui.event.classList.remove('major-scene');ui.eventContinue.textContent='ПРОДОЛЖИТЬ';setContact(null);updateHud()
+  }
   function recordWreck(reason){
     if(state.wreckRecorded)return;state.wreckRecorded=true;profile.wrecks.unshift({id:'wreck-'+Date.now(),run:state.runId,depth:Math.round(state.depth),reason,step:state.step,cargo:state.cargo.slice(),salvaged:false});profile.wrecks=profile.wrecks.slice(0,12);saveProfile();
   }
