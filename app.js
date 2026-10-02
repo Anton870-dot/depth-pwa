@@ -710,6 +710,31 @@
   }
   function frame(t){drawBackground(t);drawSonar(t);requestAnimationFrame(frame)}
 
+  function installAppShellGuards(){
+    const standalone=window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.navigator.standalone===true;
+    document.body.classList.toggle('app-standalone',standalone);
+    let touchStartY=0,touchScroller=null;
+    document.addEventListener('touchstart',event=>{
+      if(event.touches.length!==1)return;
+      touchStartY=event.touches[0].clientY;
+      touchScroller=event.target.closest('.dialog,.overlay,.cutaway-scroll,.archive-entries,.cargo-slots,.journal-entries');
+    },{passive:true});
+    document.addEventListener('touchmove',event=>{
+      if(event.touches.length!==1)return;
+      const deltaY=event.touches[0].clientY-touchStartY;
+      if(touchScroller&&touchScroller.scrollHeight>touchScroller.clientHeight){
+        const canMoveUp=deltaY<0&&touchScroller.scrollTop+touchScroller.clientHeight<touchScroller.scrollHeight-1;
+        const canMoveDown=deltaY>0&&touchScroller.scrollTop>0;
+        if(canMoveUp||canMoveDown)return;
+      }
+      const scrollingElement=document.body;
+      const atTop=scrollingElement.scrollTop<=0;
+      const atBottom=Math.ceil(scrollingElement.scrollTop+scrollingElement.clientHeight)>=scrollingElement.scrollHeight;
+      if((atTop&&deltaY>0)||(atBottom&&deltaY<0))event.preventDefault();
+    },{passive:false});
+    document.addEventListener('gesturestart',event=>event.preventDefault(),{passive:false});
+  }
+
   ui.start.addEventListener('click',()=>{initAudio();switchMusic('game');ui.intro.classList.remove('visible');startNewGame()});
   ui.musicToggle.addEventListener('click',toggleMusic);
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
@@ -721,5 +746,5 @@
   document.addEventListener('visibilitychange',()=>document.hidden?pauseForBackground():resumeFromBackground());
   window.addEventListener('pagehide',pauseForBackground);window.addEventListener('pageshow',()=>{if(!document.hidden)resumeFromBackground()});
   if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  syncMusicButton();switchMusic('menu',1400);resize();renderCargo();updateArchiveBadges();updateHud();requestAnimationFrame(frame);
+  installAppShellGuards();syncMusicButton();switchMusic('menu',1400);resize();renderCargo();updateArchiveBadges();updateHud();requestAnimationFrame(frame);
 })();
