@@ -415,6 +415,7 @@
 
   if(Array.isArray(window.PELAGIAL_EVENT_PACK_2))events.push(...window.PELAGIAL_EVENT_PACK_2);
   if(Array.isArray(window.PELAGIAL_EVENT_PACK_3))events.push(...window.PELAGIAL_EVENT_PACK_3);
+  if(Array.isArray(window.PELAGIAL_EVENT_PACK_4))events.push(...window.PELAGIAL_EVENT_PACK_4);
 
   const finalEvents = {
     prometheus_final:{id:'prometheus_final',type:'ЦЕЛЬ ЭКСПЕДИЦИИ',glyph:'⌂',title:'Станция «Прометей»',text:'Станция цела, свет включён, шлюз открыт. Внутри нет людей. Центральный компьютер повторяет одну фразу: «Экипаж ещё не прибыл».',quote:'Соколова: «Их последний сигнал пришёл отсюда три недели назад».',choices:[
@@ -539,7 +540,7 @@
     const zone=getZone(state.depth),themed=pool.filter(event=>(zone.keywords||[]).some(keyword=>(event.type+' '+event.title).toUpperCase().includes(keyword)));if(themed.length>=4&&Math.random()<.68)pool=themed;
     const event=pool[Math.floor(Math.random()*pool.length)];
     state.used.push(event.id);
-    profile.recentEvents=[event.id,...(profile.recentEvents||[]).filter(id=>id!==event.id)].slice(0,100);
+    profile.recentEvents=[event.id,...(profile.recentEvents||[]).filter(id=>id!==event.id)].slice(0,160);
     saveProfile();
     return event;
   }
