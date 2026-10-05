@@ -15,17 +15,12 @@
   <link rel="manifest" href="pelagial.webmanifest?v=30-clean-install">
   <link rel="icon" href="app-icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="app-icon-180.png">
-  <link rel="stylesheet" href="styles.css?v=34-captain-station">
+  <link rel="stylesheet" href="styles.css?v=35-tactical-display">
 </head>
 <body>
   <main id="game">
     <canvas id="ocean" aria-hidden="true"></canvas>
     <button id="musicToggle" class="music-toggle muted" type="button" aria-label="Включить музыку" aria-pressed="false" title="Музыка">♪</button>
-
-    <header class="topbar glass">
-      <div class="brand"><i>◉</i><div><b>ПЕЛАГИАЛЬ ЗАБВЕНИЯ</b><small>НАУЧНАЯ ЭКСПЕДИЦИЯ · НИО-17</small></div></div>
-      <div class="depth"><small id="zoneName">ВЕРХНИЙ ОКЕАН</small><strong><span id="depthValue">2 140</span> м</strong></div>
-    </header>
 
     <section id="submarine" class="captain-station" aria-label="Капитанское место подлодки Нереида">
       <div class="bridge-lighting" aria-hidden="true"></div>
@@ -33,6 +28,10 @@
       <div class="bridge-damage" aria-hidden="true"><i class="bridge-crack"></i><i class="bridge-water"></i></div>
       <div class="bridge-sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="bridge-monitor">
+        <header class="topbar glass">
+          <div class="brand"><i>◉</i><div><b>ПЕЛАГИАЛЬ ЗАБВЕНИЯ</b><small>КАПИТАНСКИЙ КОМПЛЕКС · НИО-17</small></div></div>
+          <div class="depth"><small id="zoneName">ВЕРХНИЙ ОКЕАН</small><strong><span id="depthValue">2 140</span> м</strong></div>
+        </header>
 
     <section class="resources glass" aria-label="Состояние подлодки">
       <div class="resource hull"><label>КОРПУС <b id="hullText">100%</b></label><i><em id="hullBar"></em></i></div>
@@ -193,6 +192,6 @@
   <script src="events-pack-horror.js?v=33-horror-150"></script>
   <script src="major-scenes.js?v=30-clean-install"></script>
   <script src="science-data.js?v=33-horror-150"></script>
-  <script src="app.js?v=34-captain-station"></script>
+  <script src="app.js?v=35-tactical-display"></script>
 </body>
 </html>
