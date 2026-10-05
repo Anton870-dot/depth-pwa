@@ -697,7 +697,7 @@
     }else{ui.missionTitle.textContent='Погружение не начато';ui.missionObjective.textContent='Начните новую игру и узнайте, что ждёт «Нереиду» в глубине.';ui.routeProgress.style.width='0%';ui.routeText.textContent='БАЗА «ГАЛИЛЕЙ» · КОРПУСОВ НА ДНЕ: '+(profile.wrecks||[]).filter(w=>!w.salvaged).length;ui.continueBtn.disabled=true;ui.continueHint.textContent='Сначала начните новую игру'}
     ui.reactorTask.textContent=state.heat>82?'Опасный перегрев':state.energy<25?'Экономичный режим':'Номинальная мощность';ui.labTask.textContent=(profile.archive||[]).length?'Архив: '+profile.archive.length+' записей':'Научный архив пуст';ui.ambient.textContent=zone.code+' · давление: '+(state.depth*.001315).toFixed(1).replace('.',',')+' МПа';
     const bad=Math.min(state.hull,state.energy,state.oxygen),heatBad=state.heat<18||state.heat>88;ui.shipStatus.textContent=bad<25||heatBad?'КРИТИЧЕСКОЕ СОСТОЯНИЕ':bad<55?'ТРЕБУЕТСЯ ВНИМАНИЕ':'СИСТЕМЫ В НОРМЕ';ui.shipStatus.style.color=bad<25||heatBad?'var(--red)':bad<55?'var(--amber)':'var(--green)';
-    ui.sub.classList.toggle('damage-leak',state.hull<72);ui.sub.classList.toggle('damage-spark',state.energy<42);ui.sub.classList.toggle('damage-fire',state.heat>82);ui.sub.classList.toggle('blackout',state.energy<22);ui.sub.classList.toggle('flooded',state.hull<38);
+    ui.sub.classList.toggle('damage-leak',state.hull<72);ui.sub.classList.toggle('damage-spark',state.energy<42);ui.sub.classList.toggle('damage-fire',state.heat>82);ui.sub.classList.toggle('emergency-power',state.energy<36);ui.sub.classList.toggle('blackout',state.energy<22);ui.sub.classList.toggle('flooded',state.hull<38);
   }
   function log(text){ui.log.textContent=text}
   function renderJournal(){

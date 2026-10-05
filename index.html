@@ -15,7 +15,7 @@
   <link rel="manifest" href="pelagial.webmanifest?v=30-clean-install">
   <link rel="icon" href="app-icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="app-icon-180.png">
-  <link rel="stylesheet" href="styles.css?v=33-horror-150">
+  <link rel="stylesheet" href="styles.css?v=34-captain-station">
 </head>
 <body>
   <main id="game">
@@ -26,6 +26,13 @@
       <div class="brand"><i>◉</i><div><b>ПЕЛАГИАЛЬ ЗАБВЕНИЯ</b><small>НАУЧНАЯ ЭКСПЕДИЦИЯ · НИО-17</small></div></div>
       <div class="depth"><small id="zoneName">ВЕРХНИЙ ОКЕАН</small><strong><span id="depthValue">2 140</span> м</strong></div>
     </header>
+
+    <section id="submarine" class="captain-station" aria-label="Капитанское место подлодки Нереида">
+      <div class="bridge-lighting" aria-hidden="true"></div>
+      <div class="bridge-blackout" aria-hidden="true"></div>
+      <div class="bridge-damage" aria-hidden="true"><i class="bridge-crack"></i><i class="bridge-water"></i></div>
+      <div class="bridge-sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="bridge-monitor">
 
     <section class="resources glass" aria-label="Состояние подлодки">
       <div class="resource hull"><label>КОРПУС <b id="hullText">100%</b></label><i><em id="hullBar"></em></i></div>
@@ -46,7 +53,7 @@
         <span id="ambientStatus">Лёд над корпусом: 11,4 км</span>
       </header>
       <div class="cutaway-scroll">
-        <div id="submarine" class="submarine">
+        <div id="submarineCutaway" class="submarine">
           <div class="outer-hull"></div>
           <div class="hull-ribs"></div>
           <div class="keel"></div>
@@ -104,6 +111,8 @@
     </section>
 
     <section id="messageLog" class="message-log glass" aria-live="polite">«Нереида» закреплена в доке станции «Галилей».</section>
+      </div>
+    </section>
 
     <div id="intro" class="overlay visible">
       <section class="dialog intro-dialog">
@@ -184,6 +193,6 @@
   <script src="events-pack-horror.js?v=33-horror-150"></script>
   <script src="major-scenes.js?v=30-clean-install"></script>
   <script src="science-data.js?v=33-horror-150"></script>
-  <script src="app.js?v=33-horror-150"></script>
+  <script src="app.js?v=34-captain-station"></script>
 </body>
 </html>
