@@ -416,6 +416,7 @@
   if(Array.isArray(window.PELAGIAL_EVENT_PACK_2))events.push(...window.PELAGIAL_EVENT_PACK_2);
   if(Array.isArray(window.PELAGIAL_EVENT_PACK_3))events.push(...window.PELAGIAL_EVENT_PACK_3);
   if(Array.isArray(window.PELAGIAL_EVENT_PACK_4))events.push(...window.PELAGIAL_EVENT_PACK_4);
+  if(Array.isArray(window.PELAGIAL_EVENT_PACK_HORROR))events.push(...window.PELAGIAL_EVENT_PACK_HORROR);
 
   const finalEvents = {
     prometheus_final:{id:'prometheus_final',type:'ЦЕЛЬ ЭКСПЕДИЦИИ',glyph:'⌂',title:'Станция «Прометей»',text:'Станция цела, свет включён, шлюз открыт. Внутри нет людей. Центральный компьютер повторяет одну фразу: «Экипаж ещё не прибыл».',quote:'Соколова: «Их последний сигнал пришёл отсюда три недели назад».',choices:[
@@ -525,7 +526,7 @@
     initAudio();tone(82,.5,.018,'triangle');const previousZone=getZone(state.depth);
     const costs={silent:{energy:-4,oxygen:-6,heat:-5},cruise:{energy:-7,oxygen:-5,heat:-2},full:{energy:-11,oxygen:-4,heat:7}}[state.speed];
     applyEffects(costs,false);applyEffects(previousZone.travel||{},false);if(state.speed==='full'&&Math.random()<.3)applyEffects({hull:-3},false);
-    const descent={silent:[160,280],cruise:[260,440],full:[390,620]}[state.speed];state.step++;state.depth+=descent[0]+Math.random()*(descent[1]-descent[0]);profile.bestDepth=Math.max(profile.bestDepth||2140,Math.round(state.depth));saveProfile();updateHud();
+    const descent={silent:[160,280],cruise:[260,440],full:[390,620]}[state.speed],depthScale=previousZone.depthScale||1;state.step++;state.depth+=(descent[0]+Math.random()*(descent[1]-descent[0]))*depthScale;profile.bestDepth=Math.max(profile.bestDepth||2140,Math.round(state.depth));saveProfile();updateHud();
     if(checkFailure())return;
     const event=pickEvent(),nextZone=getZone(state.depth);if(nextZone.id!==previousZone.id){state.pendingEvent=event;showZoneTransition(nextZone,event);return}showEvent(event);
   }
@@ -533,11 +534,19 @@
     if(majorScenes.length&&state.step>=state.nextMajorAt)return pickMajorEvent();
     const wreck=(profile.wrecks||[]).find(w=>!w.salvaged&&w.run!==state.runId&&state.depth>=w.depth-450);
     if(wreck&&!state.encounteredWreck&&Math.random()<.35){state.encounteredWreck=true;return makeWreckEvent(wreck)}
-    const recent=new Set(profile.recentEvents||[]);
-    let pool=events.filter(e=>!state.used.includes(e.id)&&!recent.has(e.id));
-    if(!pool.length)pool=events.filter(e=>!state.used.includes(e.id));
-    if(!pool.length){state.used=[];pool=events.slice()}
-    const zone=getZone(state.depth),themed=pool.filter(event=>(zone.keywords||[]).some(keyword=>(event.type+' '+event.title).toUpperCase().includes(keyword)));if(themed.length>=4&&Math.random()<.68)pool=themed;
+    const recent=new Set(profile.recentEvents||[]),atDepth=event=>!event.minDepth||state.depth>=event.minDepth;
+    let pool=events.filter(e=>atDepth(e)&&!state.used.includes(e.id)&&!recent.has(e.id));
+    if(!pool.length)pool=events.filter(e=>atDepth(e)&&!state.used.includes(e.id));
+    if(!pool.length){state.used=[];pool=events.filter(atDepth)}
+    const zone=getZone(state.depth),horror=pool.filter(event=>event.horror),horrorChance=Math.min(.72,.22+state.depth/200000);
+    if(horror.length&&Math.random()<horrorChance){
+      const deepestTier=Math.max(...horror.map(event=>event.horrorTier||1));
+      const deepestHorror=horror.filter(event=>(event.horrorTier||1)>=deepestTier-1);
+      pool=deepestHorror.length?deepestHorror:horror;
+    }else{
+      const ordinary=pool.filter(event=>!event.horror);if(ordinary.length)pool=ordinary;
+      const themed=pool.filter(event=>(zone.keywords||[]).some(keyword=>(event.type+' '+event.title).toUpperCase().includes(keyword)));if(themed.length>=4&&Math.random()<.68)pool=themed;
+    }
     const event=pool[Math.floor(Math.random()*pool.length)];
     state.used.push(event.id);
     profile.recentEvents=[event.id,...(profile.recentEvents||[]).filter(id=>id!==event.id)].slice(0,160);
@@ -684,9 +693,9 @@
     ui.cargoBtn.disabled=!state.active;ui.cargoCount.textContent=(state.cargo||[]).length+'/'+CARGO_LIMIT;updateArchiveBadges();
     const zone=getZone(state.depth);document.body.dataset.zone=zone.id;ui.depth.textContent=Math.round(state.depth).toLocaleString('ru-RU');ui.zone.textContent=zone.name;
     if(state.active){
-      const pct=clamp((state.depth-2140)/150);ui.missionTitle.textContent='Погружение №'+state.runId;ui.missionObjective.textContent=zone.code+' · '+zone.subtitle+'. Каждое решение может открыть новую запись архива.';ui.routeProgress.style.width=pct+'%';ui.routeText.textContent=Math.round(state.depth).toLocaleString('ru-RU')+' М · '+zone.name+' · СОБЫТИЙ: '+state.step+' · РЕКОРД: '+Math.round(profile.bestDepth||state.depth).toLocaleString('ru-RU')+' М';ui.continueBtn.disabled=false;ui.continueHint.textContent='следующее событие';ui.commandTask.textContent=state.step?'Автопилот · погружение '+state.step:'Свободное погружение';
+      const pct=clamp((state.depth-2140)/1000);ui.missionTitle.textContent='Погружение №'+state.runId;ui.missionObjective.textContent=zone.code+' · '+zone.subtitle+'. Каждое решение может открыть новую запись архива.';ui.routeProgress.style.width=pct+'%';ui.routeText.textContent=Math.round(state.depth).toLocaleString('ru-RU')+' М · '+zone.name+' · СОБЫТИЙ: '+state.step+' · РЕКОРД: '+Math.round(profile.bestDepth||state.depth).toLocaleString('ru-RU')+' М';ui.continueBtn.disabled=false;ui.continueHint.textContent='следующее событие';ui.commandTask.textContent=state.step?'Автопилот · погружение '+state.step:'Свободное погружение';
     }else{ui.missionTitle.textContent='Погружение не начато';ui.missionObjective.textContent='Начните новую игру и узнайте, что ждёт «Нереиду» в глубине.';ui.routeProgress.style.width='0%';ui.routeText.textContent='БАЗА «ГАЛИЛЕЙ» · КОРПУСОВ НА ДНЕ: '+(profile.wrecks||[]).filter(w=>!w.salvaged).length;ui.continueBtn.disabled=true;ui.continueHint.textContent='Сначала начните новую игру'}
-    ui.reactorTask.textContent=state.heat>82?'Опасный перегрев':state.energy<25?'Экономичный режим':'Номинальная мощность';ui.labTask.textContent=(profile.archive||[]).length?'Архив: '+profile.archive.length+' записей':'Научный архив пуст';ui.ambient.textContent=zone.code+' · лёд над корпусом: '+Math.max(2.1,13.5-state.depth/520).toFixed(1).replace('.',',')+' км';
+    ui.reactorTask.textContent=state.heat>82?'Опасный перегрев':state.energy<25?'Экономичный режим':'Номинальная мощность';ui.labTask.textContent=(profile.archive||[]).length?'Архив: '+profile.archive.length+' записей':'Научный архив пуст';ui.ambient.textContent=zone.code+' · давление: '+(state.depth*.001315).toFixed(1).replace('.',',')+' МПа';
     const bad=Math.min(state.hull,state.energy,state.oxygen),heatBad=state.heat<18||state.heat>88;ui.shipStatus.textContent=bad<25||heatBad?'КРИТИЧЕСКОЕ СОСТОЯНИЕ':bad<55?'ТРЕБУЕТСЯ ВНИМАНИЕ':'СИСТЕМЫ В НОРМЕ';ui.shipStatus.style.color=bad<25||heatBad?'var(--red)':bad<55?'var(--amber)':'var(--green)';
     ui.sub.classList.toggle('damage-leak',state.hull<72);ui.sub.classList.toggle('damage-spark',state.energy<42);ui.sub.classList.toggle('damage-fire',state.heat>82);ui.sub.classList.toggle('blackout',state.energy<22);ui.sub.classList.toggle('flooded',state.hull<38);
   }
