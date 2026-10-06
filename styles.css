@@ -237,3 +237,39 @@ body[data-zone] .topbar{border-top-color:color-mix(in srgb,var(--zone-accent) 46
   .event-overlay::before{font-size:4.5px}.event-dialog{width:96vw;max-height:92dvh;padding:12px;display:block;overflow-y:auto}.event-dialog .event-art{height:82px;min-height:82px;margin:0 0 10px}.event-dialog .event-art::before{width:150px;height:150px}.event-dialog .event-art div{font-size:35px}.event-dialog>h2{margin:4px 0 7px;font-size:20px}.event-dialog>p{font-size:9px}.event-dialog>blockquote{font-size:8px}.event-dialog .event-choices{grid-template-columns:1fr;gap:5px}.event-dialog .event-choices button{min-height:0;padding:9px}.event-dialog .event-sequence{margin-bottom:8px}
 }
 @media(max-width:380px){.bridge-monitor{grid-template-columns:61px minmax(0,1fr)}.captain-station .brand small{display:none}.captain-station .mission-card h2{font-size:8px}.captain-station .mission-card p{display:block;font-size:4.5px}.captain-station .route-progress>span{display:block;font-size:3.8px}.captain-station .continue-btn small{display:block}.captain-station .captain-console{grid-template-columns:minmax(0,1fr) 63px}.captain-station .passive-sonar{width:60px;height:60px}.captain-station .speed-buttons b{font-size:4.5px}}
+
+/* v36 · readable interface typography */
+.captain-station .brand b{font-size:9px}.captain-station .brand small{font-size:6px}
+.captain-station .depth small{font-size:6px}.captain-station .depth strong{font-size:14px}
+.captain-station .interior-heading b{font-size:7px}.captain-station .interior-heading>span{font-size:6.5px}
+.captain-station .resource label{font-size:6px}.captain-station .resource label b{font-size:10px}
+.captain-station .mission-card small{font-size:6px}.captain-station .mission-card h2{font-size:14px}.captain-station .mission-card p{font-size:8px;line-height:1.4}
+.captain-station .route-progress>span{font-size:6px}
+.captain-station .small-btn{min-width:54px;padding:5px 6px;font-size:6px}.captain-station .archive-button b,.captain-station .cargo-button b{font-size:6px}
+.captain-station .journey-controls>small{font-size:6px}.captain-station .speed-buttons b{font-size:7px}.captain-station .speed-buttons span{font-size:5.5px}
+.captain-station .continue-btn span{font-size:8px}.captain-station .continue-btn small{font-size:5.5px}
+.captain-station .sonar-copy b{font-size:6px}.captain-station .message-log{font-size:6.5px}
+.dialog p{font-size:12px}.eyebrow{font-size:9px}.primary-btn{font-size:10px}
+.event-dialog>p{font-size:12px}.event-dialog>blockquote{font-size:11px}.event-choices b{font-size:11px}.event-choices span{font-size:9px}.event-choices small{font-size:8px}
+.effect{font-size:9px}.journal-entry small{font-size:8px}.journal-entry b{font-size:12px}.journal-entry p{font-size:10px}
+.cargo-summary span{font-size:9px}.cargo-summary small{font-size:8px}.cargo-slot div small{font-size:7px}.cargo-slot div b{font-size:11px}.cargo-slot p{font-size:9px}.cargo-slot button{font-size:8px}
+.archive-overview span{font-size:7px}.archive-overview p{font-size:10px}.archive-filters button{font-size:7.5px}.archive-entry summary small{font-size:7.5px}.archive-entry summary b{font-size:12px}.archive-entry summary em{font-size:8px}.archive-body small{font-size:7.5px}.archive-body b{font-size:10px}.archive-body p{font-size:10px}.archive-body footer{font-size:7px}
+.zone-subtitle{font-size:10px}.zone-dialog>p{font-size:12px}.zone-phenomena span{font-size:8px}.zone-risk span{font-size:8px}.zone-risk b{font-size:9px}
+.menu-vessel span{width:50px;height:50px;font-size:9px}.menu-vessel b{font-size:16px}.menu-vessel small{font-size:9px}.menu-meta{font-size:8px}.menu-archive-btn{font-size:9px}#intro #saveNote{font-size:8px}
+#intro .primary-btn{font-size:11px}
+
+@media(max-width:520px){
+  .bridge-monitor{left:2%;top:8%;width:96%;height:63%;padding:7px;grid-template-columns:82px minmax(0,1fr);grid-template-rows:40px 24px minmax(0,1fr) 108px 26px;gap:4px}
+  .captain-station .topbar{padding:4px 6px}.captain-station .brand>i{width:26px;height:26px;font-size:11px}.captain-station .brand b{font-size:9px}.captain-station .brand small{font-size:6px}.captain-station .depth small{font-size:6px}.captain-station .depth strong{font-size:14px}
+  .captain-station .interior-heading b{font-size:7px}.captain-station .interior-heading>span{font-size:6.5px}
+  .captain-station .resource{padding:5px 4px}.captain-station .resource label{font-size:6.5px}.captain-station .resource label b{font-size:10px}
+  .captain-station .mission-card{padding:6px 7px}.captain-station .mission-card small{font-size:6.5px}.captain-station .mission-card h2{font-size:13px}.captain-station .mission-card p{font-size:8px}.captain-station .route-progress>span{font-size:6px}
+  .captain-station .small-btn{min-width:52px;padding:4px 5px;font-size:6.2px}.captain-station .archive-button b,.captain-station .cargo-button b{font-size:6.2px}
+  .captain-station .captain-console{grid-template-columns:minmax(0,1fr) 91px;padding:5px 6px}.captain-station .passive-sonar{width:85px;height:85px}.captain-station .journey-controls>small{font-size:6.5px}.captain-station .speed-buttons b{font-size:7px}.captain-station .continue-btn span{font-size:8.5px}.captain-station .continue-btn small{font-size:5.8px}.captain-station .sonar-copy b{font-size:6.2px}.captain-station .message-log{font-size:7px}
+  .event-overlay::before{font-size:6px}.event-dialog>p{font-size:11px}.event-dialog>blockquote{font-size:10px}.event-choices b{font-size:11px}.event-choices span{font-size:9px}.event-choices small{font-size:8px}
+}
+
+@media(max-width:380px){
+  .bridge-monitor{grid-template-columns:78px minmax(0,1fr);grid-template-rows:38px 23px minmax(0,1fr) 104px 25px}
+  .captain-station .brand small{display:block;font-size:5.3px}.captain-station .mission-card h2{font-size:12px}.captain-station .mission-card p{display:-webkit-box;font-size:7px}.captain-station .route-progress>span{display:block;font-size:5.5px}.captain-station .continue-btn small{display:block}.captain-station .captain-console{grid-template-columns:minmax(0,1fr) 84px}.captain-station .passive-sonar{width:79px;height:79px}.captain-station .speed-buttons b{font-size:6.5px}
+}
