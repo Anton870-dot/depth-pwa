@@ -4,6 +4,7 @@
   const clamp = (n, min = 0, max = 100) => Math.max(min, Math.min(max, n));
   const ui = {
     ocean: $('ocean'), sonar: $('sonar'), intro: $('intro'), start: $('startBtn'), musicToggle: $('musicToggle'),
+    base: $('baseOverlay'), basePoints: $('basePoints'), baseUpgrades: $('baseUpgrades'), baseSummary: $('baseSummary'), baseLaunch: $('baseLaunch'), closeBase: $('closeBase'),
     journal: $('journalOverlay'), journalBtn: $('journalBtn'), closeJournal: $('closeJournal'), journalEntries: $('journalEntries'),
     cargo: $('cargoOverlay'), cargoBtn: $('cargoBtn'), cargoCount: $('cargoCount'), closeCargo: $('closeCargo'), cargoSlots: $('cargoSlots'), cargoStatus: $('cargoStatus'),
     archive: $('archiveOverlay'), archiveBtn: $('archiveBtn'), archiveCount: $('archiveCount'), menuArchiveBtn: $('menuArchiveBtn'), menuArchiveCount: $('menuArchiveCount'), closeArchive: $('closeArchive'), archiveTotal: $('archiveTotal'), archiveFilters: $('archiveFilters'), archiveEntries: $('archiveEntries'), saveNote: $('saveNote'),
@@ -452,6 +453,12 @@
     bio_sample:{id:'bio_sample',glyph:'✤',name:'Живой образец',desc:'Редкая подлёдная форма жизни в автономном контейнере.',use:'Передать в лабораторию',effects:{discovery:3}},
     ancient_module:{id:'ancient_module',glyph:'◇',name:'Неизвестный модуль',desc:'Чужой механизм, реагирующий на электрическое поле лодки.',use:'Исследовать модуль',effects:{energy:10,discovery:2}}
   };
+  const upgradeDefs = [
+    {id:'hull',glyph:'⬡',title:'ОБШИВКА «КАЛЛИСТО»',system:'КОРПУС ВЫСОКОГО ДАВЛЕНИЯ',per:.08,costs:[2,4,7],benefit:level=>'Повреждения корпуса −'+(level*8)+'%',description:'Слои памяти металла смыкаются вокруг микротрещин раньше, чем давление успевает разорвать обшивку. На предельной глубине корпус начинает словно помнить свою первоначальную форму.'},
+    {id:'reactor',glyph:'ϟ',title:'КОНТУР «ЛАЗАРЬ»',system:'РЕАКТОР И ЭНЕРГОСЕТЬ',per:.09,costs:[2,4,7],benefit:level=>'Расход энергии −'+(level*9)+'%',description:'Сверхпроводящие петли возвращают в сеть энергию торможения турбин и импульсов маневровых двигателей. Реактор дольше сохраняет ровное, почти бесшумное сердце.'},
+    {id:'oxygen',glyph:'◉',title:'САД КЕПЛЕРА',system:'РЕГЕНЕРАЦИЯ КИСЛОРОДА',per:.10,costs:[2,4,7],benefit:level=>'Расход кислорода −'+(level*10)+'%',description:'Колонии искусственных водорослей растут в прозрачных капиллярах вдоль переборок, очищая воздух и реагируя мягким свечением на присутствие неизвестной жизни.'},
+    {id:'thermal',glyph:'❄',title:'ПЛАЩ «ЭРЕБ»',system:'ТЕПЛОВАЯ ЗАЩИТА',per:.12,costs:[2,4,7],benefit:level=>'Потери тепла −'+(level*12)+'%',description:'Аэрогелевая оболочка удерживает тепло даже там, где океан холоднее любой земной зимы. Внешний слой меняет структуру, подстраиваясь под давление и течение.'}
+  ];
   const majorScenes=Array.isArray(window.PELAGIAL_MAJOR_SCENES)?window.PELAGIAL_MAJOR_SCENES:[];
   const science=window.PELAGIAL_SCIENCE||{zones:[],categories:[],conclusions:{}};
   const fallbackZone={id:'shelf',name:'ПОДЛЁДНЫЙ ШЕЛЬФ',code:'ЗОНА I',subtitle:'Граница человеческого присутствия',risk:'УМЕРЕННЫЙ РИСК',description:'Верхний слой подлёдного океана.',phenomena:['ледяные каньоны'],keywords:[],colors:['#0b3548','#051923','#01070b'],travel:{},resourceBonus:0};
@@ -479,8 +486,8 @@
   function getZone(depth){return science.zones.find(zone=>depth>=zone.min&&depth<=zone.max)||science.zones[science.zones.length-1]||fallbackZone}
   function freshState(){ return {hull:100,energy:100,oxygen:100,heat:62,depth:2140,speed:'cruise',runId:0,step:0,used:[],discoveries:0,journal:[],cargo:[],cargoPity:0,majorUsed:[],nextMajorAt:nextMajorStep(),pendingEvent:null,active:false,lastEffects:{},eventResolved:false,encounteredWreck:false,wreckRecorded:false}; }
   function loadProfile(){
-    const empty={completed:[],totalDiscoveries:0,runs:0,recentEvents:[],wrecks:[],archive:[],bestDepth:2140};
-    try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];if(!Array.isArray(saved.wrecks))saved.wrecks=[];if(!Array.isArray(saved.archive))saved.archive=[];return saved}catch{return empty}
+    const empty={completed:[],totalDiscoveries:0,researchPoints:0,upgrades:{hull:0,reactor:0,oxygen:0,thermal:0},upgradeMigration:0,runs:0,recentEvents:[],wrecks:[],archive:[],bestDepth:2140};
+    try{const saved=Object.assign({},empty,JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));if(!Array.isArray(saved.recentEvents))saved.recentEvents=[];if(!Array.isArray(saved.wrecks))saved.wrecks=[];if(!Array.isArray(saved.archive))saved.archive=[];saved.upgrades=Object.assign({},empty.upgrades,saved.upgrades||{});upgradeDefs.forEach(item=>saved.upgrades[item.id]=clamp(Number(saved.upgrades[item.id])||0,0,3));if(!saved.upgradeMigration){saved.researchPoints=Math.max(Number(saved.researchPoints)||0,Number(saved.totalDiscoveries)||0);saved.upgradeMigration=1;localStorage.setItem(SAVE_KEY,JSON.stringify(saved))}return saved}catch{return empty}
   }
   function saveProfile(){ localStorage.setItem(SAVE_KEY,JSON.stringify(profile)); }
   function initAudio(){ if(audio)return;const AC=window.AudioContext||window.webkitAudioContext;if(AC)audio=new AC(); }
@@ -515,9 +522,21 @@
     musicMuted=true;autoplayPending=false;resumeAfterBackground=false;localStorage.setItem(MUSIC_KEY,'1');syncMusicButton();Object.values(musicTracks).forEach(track=>fadeTrack(track,0,350,()=>track.pause()));
   }
 
+  function renderBase(){
+    const points=Math.max(0,Math.floor(profile.researchPoints||0));ui.basePoints.textContent=points;const installed=upgradeDefs.reduce((sum,item)=>sum+(profile.upgrades[item.id]||0),0);ui.baseSummary.textContent=installed?'Установлено модулей: '+installed+' из '+(upgradeDefs.length*3):'Штатная конфигурация · улучшения не установлены';
+    ui.baseUpgrades.innerHTML=upgradeDefs.map(item=>{const level=profile.upgrades[item.id]||0,maxed=level>=3,cost=maxed?0:item.costs[level],locked=!maxed&&points<cost;return '<article class="base-upgrade '+(maxed?'maxed':'')+'"><div class="upgrade-glyph">'+item.glyph+'</div><div class="upgrade-copy"><small>'+item.system+'</small><h3>'+item.title+'</h3><p>'+item.description+'</p><b>'+(level?item.benefit(level):'Система не модернизирована')+'</b></div><div class="upgrade-level"><span>УРОВЕНЬ '+level+'/3</span><i>'+[1,2,3].map(n=>'<em class="'+(n<=level?'active':'')+'"></em>').join('')+'</i><button data-upgrade="'+item.id+'" '+(maxed||locked?'disabled':'')+'>'+(maxed?'МАКСИМУМ':'УЛУЧШИТЬ · '+cost+' ◇')+'</button></div></article>'}).join('');
+    ui.baseUpgrades.querySelectorAll('[data-upgrade]').forEach(button=>button.addEventListener('click',()=>buyUpgrade(button.dataset.upgrade)));
+  }
+  function buyUpgrade(id){
+    const item=upgradeDefs.find(entry=>entry.id===id),level=profile.upgrades[id]||0;if(!item||level>=3)return;const cost=item.costs[level];if((profile.researchPoints||0)<cost)return;profile.researchPoints-=cost;profile.upgrades[id]=level+1;saveProfile();renderBase();tone(520,.32,.025,'triangle');
+  }
+  function openBase(){
+    ui.end.classList.remove('visible');ui.event.classList.remove('visible');ui.zoneOverlay.classList.remove('visible');ui.cargo.classList.remove('visible');state.active=false;renderBase();ui.base.classList.add('visible');switchMusic('menu',650);
+  }
   function startNewGame(){
-    ui.end.classList.remove('visible');ui.event.classList.remove('visible');ui.cargo.classList.remove('visible');state=freshState();state.active=true;profile.runs++;state.runId=profile.runs;saveProfile();
+    ui.base.classList.remove('visible');ui.end.classList.remove('visible');ui.event.classList.remove('visible');ui.cargo.classList.remove('visible');state=freshState();state.active=true;profile.runs++;state.runId=profile.runs;saveProfile();
     state.journal.push({type:'НОВОЕ ПОГРУЖЕНИЕ',title:'Выход со станции «Галилей»',text:'«Нереида» уходит в свободное погружение. Возвращение не гарантировано.'});
+    const installed=upgradeDefs.filter(item=>(profile.upgrades[item.id]||0)>0);if(installed.length)state.journal.push({type:'ИНЖЕНЕРНЫЙ ДОК',title:'Модули станции «Галилей» активированы',text:installed.map(item=>item.title+' · ур. '+profile.upgrades[item.id]).join('; ')+'.'});
     setContact(null);updateHud();log('Погружение №'+state.runId+' началось. Автопилот ведёт «Нереиду» всё глубже.');
     ui.continueBtn.disabled=false;deepPing();showZoneTransition(getZone(state.depth),null);
   }
@@ -595,9 +614,10 @@
     return Object.entries(effects).filter(([k,v])=>names[k]&&v).map(([k,v])=>'<span class="effect '+(v>0?'good':'bad')+'">'+(v>0?'+':'')+v+' · '+names[k]+'</span>').join('')||'<span class="effect">Без потерь</span>';
   }
   function applyEffects(effects,visual=true){
-    ['hull','energy','oxygen','heat'].forEach(k=>{if(effects[k])state[k]=clamp(state[k]+effects[k])});
+    const protection={hull:'hull',energy:'reactor',oxygen:'oxygen',heat:'thermal'};
+    ['hull','energy','oxygen','heat'].forEach(k=>{if(effects[k]){let value=effects[k],upgrade=upgradeDefs.find(item=>item.id===protection[k]),level=profile.upgrades[protection[k]]||0;if(value<0&&upgrade)value*=1-upgrade.per*level;state[k]=clamp(state[k]+value)}});
     if(effects.depth)state.depth=Math.max(900,state.depth+effects.depth);
-    if(effects.discovery){state.discoveries=Math.max(0,state.discoveries+effects.discovery);profile.totalDiscoveries=Math.max(0,profile.totalDiscoveries+effects.discovery);saveProfile()}
+    if(effects.discovery){state.discoveries=Math.max(0,state.discoveries+effects.discovery);profile.totalDiscoveries=Math.max(0,profile.totalDiscoveries+effects.discovery);if(effects.discovery>0)profile.researchPoints=(profile.researchPoints||0)+effects.discovery;saveProfile()}
     state.lastEffects=effects;if(visual){ui.sub.classList.remove('warning');void ui.sub.offsetWidth;ui.sub.classList.add('warning')}
   }
   function cargoPoolFor(event){
@@ -745,12 +765,13 @@
     document.addEventListener('gesturestart',event=>event.preventDefault(),{passive:false});
   }
 
-  ui.start.addEventListener('click',()=>{initAudio();switchMusic('game');ui.intro.classList.remove('visible');startNewGame()});
+  ui.start.addEventListener('click',()=>{initAudio();ui.intro.classList.remove('visible');openBase()});
+  ui.baseLaunch.addEventListener('click',()=>{switchMusic('game');startNewGame()});ui.closeBase.addEventListener('click',()=>{ui.base.classList.remove('visible');ui.intro.classList.add('visible');switchMusic('menu',500)});
   ui.musicToggle.addEventListener('click',toggleMusic);
   ui.journalBtn.addEventListener('click',()=>{renderJournal();ui.journal.classList.add('visible')});ui.closeJournal.addEventListener('click',()=>ui.journal.classList.remove('visible'));
   ui.cargoBtn.addEventListener('click',()=>{renderCargo();ui.cargo.classList.add('visible')});ui.closeCargo.addEventListener('click',()=>ui.cargo.classList.remove('visible'));
   const openArchive=()=>{renderArchive();ui.archive.classList.add('visible')};ui.archiveBtn.addEventListener('click',openArchive);ui.menuArchiveBtn.addEventListener('click',openArchive);ui.closeArchive.addEventListener('click',()=>ui.archive.classList.remove('visible'));ui.zoneContinue.addEventListener('click',continueFromZone);
-  ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',startNewGame);
+  ui.continueBtn.addEventListener('click',travel);ui.eventContinue.addEventListener('click',closeEvent);ui.endBtn.addEventListener('click',openBase);
   document.querySelectorAll('[data-speed]').forEach(btn=>btn.addEventListener('click',()=>setSpeed(btn.dataset.speed)));
   window.addEventListener('resize',resize);window.addEventListener('pointerdown',unlockAudio,{once:true});window.addEventListener('keydown',unlockAudio,{once:true});
   document.addEventListener('visibilitychange',()=>document.hidden?pauseForBackground():resumeFromBackground());

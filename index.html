@@ -15,7 +15,7 @@
   <link rel="manifest" href="pelagial.webmanifest?v=30-clean-install">
   <link rel="icon" href="app-icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="app-icon-180.png">
-  <link rel="stylesheet" href="styles.css?v=37-readable-ui">
+  <link rel="stylesheet" href="styles.css?v=38-galileo-base">
 </head>
 <body>
   <main id="game">
@@ -128,6 +128,18 @@
       </section>
     </div>
 
+    <div id="baseOverlay" class="overlay base-overlay" role="dialog" aria-modal="true" aria-labelledby="baseTitle">
+      <section class="dialog base-dialog">
+        <header class="base-header">
+          <div><div class="eyebrow">ОРБИТАЛЬНО-ПОДЛЁДНЫЙ КОМПЛЕКС · СТАНЦИЯ «ГАЛИЛЕЙ»</div><h2 id="baseTitle">ИНЖЕНЕРНЫЙ ДОК</h2><p>Перед погружением направьте добытые открытия на модернизацию «Нереиды». Установленные технологии сохраняются между экспедициями.</p></div>
+          <button id="closeBase" class="close-btn" aria-label="Вернуться в главное меню">×</button>
+        </header>
+        <div class="base-balance"><span>НАУЧНЫЕ ДАННЫЕ</span><strong id="basePoints">0</strong><small>единиц открытий доступно</small></div>
+        <div id="baseUpgrades" class="base-upgrades"></div>
+        <footer class="base-footer"><div><span>НИО-17 «НЕРЕИДА»</span><small id="baseSummary">Штатная конфигурация</small></div><button id="baseLaunch" class="primary-btn">ПОДГОТОВИТЬСЯ К ПОГРУЖЕНИЮ <b>→</b></button></footer>
+      </section>
+    </div>
+
     <div id="eventOverlay" class="overlay event-overlay" role="dialog" aria-modal="true">
       <section class="dialog event-dialog">
         <div class="event-art"><div id="eventGlyph">◉</div><i></i><i></i><i></i></div>
@@ -192,6 +204,6 @@
   <script src="events-pack-horror.js?v=33-horror-150"></script>
   <script src="major-scenes.js?v=30-clean-install"></script>
   <script src="science-data.js?v=33-horror-150"></script>
-  <script src="app.js?v=37-readable-ui"></script>
+  <script src="app.js?v=38-galileo-base"></script>
 </body>
 </html>
